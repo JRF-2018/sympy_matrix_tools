@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-04-28T17:26:58Z" -->
+<!-- Time-stamp: "2022-04-28T17:43:26Z" -->
 
 Some tools for sympy matrices.
 
@@ -20,7 +20,6 @@ This module can fix a MatMul.args_cnc error like below...
 >>> x1 = Symbol("x1")
 >>> M1 = MatrixSymbol("M1", N, N)
 >>> M2 = MatrixSymbol("M2", N, N)
->>> M3 = MatrixSymbol("M2", N, N)
 >>> z = (M2 + 2 * (M2 + Identity(N)) * M1 + Identity(N))
 >>> z.coeff(M1)
 Traceback (most recent call last):
