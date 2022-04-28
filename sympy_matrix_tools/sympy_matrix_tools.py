@@ -1,16 +1,33 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.0.1' # Time-stamp: <2022-04-28T15:54:36Z>
+__version__ = '0.0.2' # Time-stamp: <2022-04-28T16:57:46Z>
 ## Language: Japanese/UTF-8
 
+import sympy
 from sympy import Mul, Add, MatMul, MatAdd, Integer, Identity, MatPow, Pow
 
 
-def partial_apply(X, arg, applyf):
+def _MatMul_fixed_args_cnc (self, cset=False, warn=True, split_1=True):
+  c = [x for x in self.args if x.is_commutative]
+  nc = [x for x in self.args if not x.is_commutative]
+  if cset:
+    clen = len(c)
+    c = set(c)
+    if clen and warn and len(c) != clen:
+      raise ValueError('repeated commutative arguments: %s' %
+                       [ci for ci in c if list(self.args).count(ci) > 1])
+  return [c, nc]
+
+
+def fix_MatMul_args_cnc ():
+  MatMul.args_cnc = _MatMul_fixed_args_cnc
+
+  
+def partial_apply (X, arg, applyf):
   repl = applyf(arg)
   return X.subs(arg, repl)
 
 
-def mat_separate_cnc(X, expand_pow=False, cset=True):
+def mat_separate_cnc (X, expand_pow=False, cset=True):
   assert X.func == MatMul
   Xc = [x for x in X.args if x.is_commutative]
   Xnc = [x for x in X.args if not x.is_commutative]
@@ -45,7 +62,7 @@ def mat_separate_cnc(X, expand_pow=False, cset=True):
   return Xc, Xnc
     
 
-def mat_coeff(X, Y, right=False):
+def mat_coeff (X, Y, right=False):
   if Y.func == MatMul:
     Yc, Ync = mat_separate_cnc(Y)
   else:
@@ -77,7 +94,7 @@ def mat_coeff(X, Y, right=False):
   return None
 
 
-def mat_collect(X, Y, right=False, expand_pow=False):
+def mat_collect (X, Y, right=False, expand_pow=False):
   if Y.func == MatMul:
     Yc, Ync = mat_separate_cnc(Y, expand_pow=expand_pow, cset=False)
   else:
@@ -133,7 +150,7 @@ def mat_collect(X, Y, right=False, expand_pow=False):
     return X
 
 
-def mat_divide(X, Y, right=False):
+def mat_divide (X, Y, right=False):
   assert Y.is_square
   if right:
     assert X.rows == Y.cols
