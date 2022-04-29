@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.0.9' # Time-stamp: <2022-04-29T12:29:28Z>
+__version__ = '0.0.10' # Time-stamp: <2022-04-29T12:48:25Z>
 ## Language: Japanese/UTF-8
 
 import sympy
@@ -67,11 +67,15 @@ def _expand_pow (X, expand_pow=True, right=True):
     elif expand_pow is False or expand_pow == 0:
       return [X]
     elif expand_pow > 0:
+      if expand_pow == pow:
+        return [q] * expand_pow
       if right:
         return [q ** (pow - expand_pow)] + [q] * expand_pow
       else:
         return [q] * expand_pow + [q ** (pow - expand_pow)]
     else:
+      if expand_pow == pow:
+        return [q ** -1] * (- expand_pow)
       if right: 
         return [q ** (pow + expand_pow)] + [q ** -1] * (-expand_pow)
       else:
