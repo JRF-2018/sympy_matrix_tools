@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.0.8' # Time-stamp: <2022-04-29T11:54:11Z>
+__version__ = '0.0.9' # Time-stamp: <2022-04-29T12:29:28Z>
 ## Language: Japanese/UTF-8
 
 import sympy
@@ -26,12 +26,14 @@ def partial_apply (X, arg, applyf):
   repl = applyf(arg)
   return X.subs(arg, repl)
 
-def _expand_pow (X, expand_pow=True, right=False):
+def _expand_pow (X, expand_pow=True, right=True):
   assert X.func == MatPow or X.func == Pow
   l = []
   pow = X.args[1]
   q = X.args[0]
-  if pow.is_integer and pow.is_number:
+  if not (isinstance(expand_pow, dict) and X in expand_pow
+          and expand_pow[X] is not True) \
+     and pow.is_integer and pow.is_number:
     if pow == 0:
       if q.is_commutative:
         q = Integer(1)
@@ -59,21 +61,21 @@ def _expand_pow (X, expand_pow=True, right=False):
       if expand_pow == pow:
         return [X]
       if right:
-        return [q ** expand_pow, q ** (pow - expand_pow)]
-      else:
         return [q ** (pow - expand_pow),  q ** expand_pow]
+      else:
+        return [q ** expand_pow, q ** (pow - expand_pow)]
     elif expand_pow is False or expand_pow == 0:
       return [X]
     elif expand_pow > 0:
       if right:
-        return [q] * expand_pow + [q ** (pow - expand_pow)]
-      else:
         return [q ** (pow - expand_pow)] + [q] * expand_pow
+      else:
+        return [q] * expand_pow + [q ** (pow - expand_pow)]
     else:
       if right: 
-        return [q ** -1] * (-expand_pow) + [q ** (pow + expand_pow)]
-      else:
         return [q ** (pow + expand_pow)] + [q ** -1] * (-expand_pow)
+      else:
+        return [q ** -1] * (-expand_pow) + [q ** (pow + expand_pow)]
 
 
 def mat_separate_cnc (X, expand_pow=False, cset=False, right=False):
@@ -94,7 +96,7 @@ def mat_separate_cnc (X, expand_pow=False, cset=False, right=False):
     l = []
     for x in Xnc:
       if x.func == MatPow and x.args[1].is_integer:
-        l += _expand_pow(x, expand_pow=expand_pow, right=right)
+        l += _expand_pow(x, expand_pow=expand_pow, right=not right)
         if cset:
           ValueError("cset must be False.")
       else:
@@ -103,7 +105,7 @@ def mat_separate_cnc (X, expand_pow=False, cset=False, right=False):
     l = []
     for x in Xc:
       if x.func == Pow and x.args[1].is_integer:
-        l += _expand_pow(x, expand_pow=expand_pow, right=right)
+        l += _expand_pow(x, expand_pow=expand_pow, right=not right)
         if cset:
           ValueError("cset must be False.")
       else:
