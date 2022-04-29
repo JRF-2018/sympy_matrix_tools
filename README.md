@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-04-29T05:15:24Z" -->
+<!-- Time-stamp: "2022-04-29T05:53:09Z" -->
 
 Some tools for sympy matrices.
 
@@ -47,13 +47,13 @@ To fix it...
 
 ```python
 >>> from sympy_matrix_tools import *
->>> z =   (M1 + M2) * M1 + 2 * x1 * (x1 + 1) * M1 * M2 + M2 * (M1 ** 2) + 3 * M2 * M1
+>>> z = (M1 + M2) * M1 + 2 * x1 * (x1 + 1) * M1 * M2 + M2 * (M1 ** 2) + 3 * M2 * M1
 >>> mat_coeff(z, M1)
 M1 + M2
 >>> mat_coeff(z, 2 * M2)
 x1*(x1 + 1)*M1
 >>> mat_coeff(z, M1, right=True)
-x1*(x1 + 1)*2*M2
+2*x1*(x1 + 1)*M2
 >>> mat_coeff(z, M1 + M2, right=True)
 M1
 >>> mat_coeff(z, M1, nth=1)
@@ -73,6 +73,10 @@ M2*M1
 ```
 
 ```python
+>> z
+(M1 + M2)*M1**2 + (M1 + M2)*M1 + (M1 + M2)*M2 + 3*M1 + M1*M2
+>> z.args[1]
+(M1 + M2)*M1**2
 >>> partial_apply(z, z.args[1], lambda y: y.expand().doit())
 M1**3 + M2*M1**2 + (M1 + M2)*M1 + (M1 + M2)*M2 + 3*M1 + M1*M2
 ```

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.0.3' # Time-stamp: <2022-04-29T04:57:49Z>
+__version__ = '0.0.4' # Time-stamp: <2022-04-29T05:34:42Z>
 ## Language: Japanese/UTF-8
 
 import sympy
@@ -28,9 +28,13 @@ def partial_apply (X, arg, applyf):
 
 
 def mat_separate_cnc (X, expand_pow=False, cset=False):
-  assert X.func == MatMul
-  Xc = [x for x in X.args if x.is_commutative]
-  Xnc = [x for x in X.args if not x.is_commutative]
+  assert X.func == MatMul or X.func == MatPow
+  if X.func == MatMul:
+    args = X.args
+  else:
+    args = [X]
+  Xc = [x for x in args if x.is_commutative]
+  Xnc = [x for x in args if not x.is_commutative]
   l = []
   for x in Xc:
     if x.func == Mul:
@@ -73,7 +77,7 @@ def mat_coeff (X, Y, right=False, expand_pow=False, nth=0):
   else:
     args = [X]
   for Z in args:
-    if Z.func == MatMul:
+    if Z.func == MatMul or (Z.func == MatPow and Z.args[1] >= 2):
       Zc, Znc = mat_separate_cnc(Z, expand_pow=expand_pow, cset=False)
     else:
       Zc = []
@@ -123,7 +127,7 @@ def mat_collect (X, Y, right=False, expand_pow=False):
   lco = []
   lnco = []
   for Z in X.args:
-    if Z.func == MatMul:
+    if Z.func == MatMul or (Z.func == MatPow and Z.args[1] >= 2):
       Zc, Znc = mat_separate_cnc(Z, expand_pow=expand_pow, cset=False)
     else:
       Zc = []
@@ -181,9 +185,9 @@ def mat_divide (X, Y, right=False):
   if not right:
     assert X.cols == Y.rows
   if Y.func == MatMul:
-    Yc, Ync = mat_separate_cnc(Y, cset=True)
+    Yc, Ync = mat_separate_cnc(Y, cset=False, expand_pow=True)
   else:
-    Yc = set()
+    Yc = []
     Ync = [Y]
   if X.func == MatAdd:
     args = X.args
@@ -191,10 +195,10 @@ def mat_divide (X, Y, right=False):
     args = [X]
   l = []
   for Z in args:
-    if Z.func == MatMul:
-      Zc, Znc = mat_separate_cnc(Z, cset=True)
+    if Z.func == MatMul or (Z.func == MatPow and Z.args[1] >= 2):
+      Zc, Znc = mat_separate_cnc(Z, cset=False, expand_pow=True)
     else:
-      Zc = set([])
+      Zc = []
       Znc = [Z]
     R = None
     if len(Znc) >= 1:
