@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-04-28T17:43:26Z" -->
+<!-- Time-stamp: "2022-04-29T05:15:24Z" -->
 
 Some tools for sympy matrices.
 
@@ -47,7 +47,7 @@ To fix it...
 
 ```python
 >>> from sympy_matrix_tools import *
->>> z = (M1 + M2) * M1 + 2 * x1 * (x1 + 1) * M1 * M2
+>>> z =   (M1 + M2) * M1 + 2 * x1 * (x1 + 1) * M1 * M2 + M2 * (M1 ** 2) + 3 * M2 * M1
 >>> mat_coeff(z, M1)
 M1 + M2
 >>> mat_coeff(z, 2 * M2)
@@ -56,6 +56,12 @@ x1*(x1 + 1)*M1
 x1*(x1 + 1)*2*M2
 >>> mat_coeff(z, M1 + M2, right=True)
 M1
+>>> mat_coeff(z, M1, nth=1)
+3*M2
+>>> mat_coeff(z, M1 ** 2)
+M2
+>>> mat_coeff(z, M1, nth=1, expand_pow=True)
+M2*M1
 ```
 
 ```python
@@ -86,6 +92,25 @@ M1**(-1)*((2*x1)*(M1 + M2)*M2) + M2
 ((1/(3*x1))*(M1 + M2)**(-1))*(M1*M2) + (2/3)*M2
 ```
 
+```python
+>>> z = M1 * M2 + (x1 ** 2) * (M2 + M1) * M1 + x1 * (M2 + M1) * (M1 ** 2) + (M2 + M1) * M2 + 3 * M1
+>>> z2 = mat_collect(z, x1 * M1, expand_pow=True)
+>>> z2
+(x1*(M1 + M2) + (M1 + M2)*M1)*(x1*M1) + (M1 + M2)*M2 + 3*M1 + M1*M2
+>>> mat_coeff(z2, x1*M1)
+
+Mixed Example:
+
+```python
+>>> z = M1 * M2 + (x1 ** 2) * (M2 + M1) * M1 + x1 * (M2 + M1) * (M1 ** 2) + (M2 + M1) * M2 + 3 * M1
+>>> z2 = mat_collect(z, x1 * M1, expand_pow=True)
+>>> z2
+(x1*(M1 + M2) + (M1 + M2)*M1)*(x1*M1) + (M1 + M2)*M2 + 3*M1 + M1*M2
+>>> mat_coeff(z2, x1 * M1)
+x1*(M1 + M2) + (M1 + M2)*M1
+>>> mat_divide(z2, x1 * M1, right=True)
+((M1 + M2)*M2)*(1/x1*M1**(-1)) + (M1*M2)*(1/x1*M1**(-1)) + x1*(M1 + M2) + (M1 + M2)*M1 + 3/x1
+```
 
 ## Author
 

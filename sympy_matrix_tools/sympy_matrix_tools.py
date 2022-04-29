@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.0.2' # Time-stamp: <2022-04-28T16:57:46Z>
+__version__ = '0.0.3' # Time-stamp: <2022-04-29T04:57:49Z>
 ## Language: Japanese/UTF-8
 
 import sympy
@@ -27,7 +27,7 @@ def partial_apply (X, arg, applyf):
   return X.subs(arg, repl)
 
 
-def mat_separate_cnc (X, expand_pow=False, cset=True):
+def mat_separate_cnc (X, expand_pow=False, cset=False):
   assert X.func == MatMul
   Xc = [x for x in X.args if x.is_commutative]
   Xnc = [x for x in X.args if not x.is_commutative]
@@ -62,11 +62,11 @@ def mat_separate_cnc (X, expand_pow=False, cset=True):
   return Xc, Xnc
     
 
-def mat_coeff (X, Y, right=False):
+def mat_coeff (X, Y, right=False, expand_pow=False, nth=0):
   if Y.func == MatMul:
-    Yc, Ync = mat_separate_cnc(Y)
+    Yc, Ync = mat_separate_cnc(Y, expand_pow=expand_pow, cset=False)
   else:
-    Yc = set()
+    Yc = []
     Ync = [Y]
   if X.func == MatAdd:
     args = X.args
@@ -74,17 +74,35 @@ def mat_coeff (X, Y, right=False):
     args = [X]
   for Z in args:
     if Z.func == MatMul:
-      Zc, Znc = mat_separate_cnc(Z)
+      Zc, Znc = mat_separate_cnc(Z, expand_pow=expand_pow, cset=False)
     else:
-      Zc = set([])
+      Zc = []
       Znc = [Z]
     R = None
-    if Yc <= Zc and len(Znc) >= len(Ync):
+    if len(Znc) >= 1:
+      if not right and Y == Znc[-1]:
+        R = Zc + Znc[0:-1]
+      if right and Y == Znc[0]:
+        R = Zc + Znc[1:]
+    if R is None:
+      done = True
+      for x in Yc:
+        try:
+          Zc.remove(x)
+        except:
+          done = False
+          break
+      if not done:
+        continue
+    if R is None and len(Znc) >= len(Ync):
       if not right and Ync == Znc[-len(Ync):]:
-        R = list(Zc - Yc) + Znc[0:-len(Ync)]
+        R = Zc + Znc[0:-len(Ync)]
       if right and Ync == Znc[0:len(Ync)]:
-        R = list(Zc - Yc) + Znc[len(Ync):]
+        R = Zc + Znc[len(Ync):]
     if R is not None:
+      if nth != 0:
+        nth -= 1
+        continue
       if len(R) == 0:
         return 1
       elif len(R) == 1:
@@ -110,18 +128,24 @@ def mat_collect (X, Y, right=False, expand_pow=False):
     else:
       Zc = []
       Znc = [Z]
-    done = True
-    for x in Yc:
-      try:
-        Zc.remove(x)
-      except:
-        done = False
-        break
-    if not done:
-      lnco.append(Z)
-      continue
     R = None
-    if len(Znc) >= len(Ync):
+    if len(Znc) >= 1:
+      if not right and Y == Znc[-1]:
+        R = Zc + Znc[0:-1]
+      if right and Y == Znc[0]:
+        R = Zc + Znc[1:]
+    if R is None:
+      done = True
+      for x in Yc:
+        try:
+          Zc.remove(x)
+        except:
+          done = False
+          break
+      if not done:
+        lnco.append(Z)
+        continue
+    if R is None and len(Znc) >= len(Ync):
       if not right and Ync == Znc[-len(Ync):]:
         R = Zc + Znc[0:-len(Ync)]
       if right and Ync == Znc[0:len(Ync)]:
@@ -157,7 +181,7 @@ def mat_divide (X, Y, right=False):
   if not right:
     assert X.cols == Y.rows
   if Y.func == MatMul:
-    Yc, Ync = mat_separate_cnc(Y)
+    Yc, Ync = mat_separate_cnc(Y, cset=True)
   else:
     Yc = set()
     Ync = [Y]
@@ -168,12 +192,18 @@ def mat_divide (X, Y, right=False):
   l = []
   for Z in args:
     if Z.func == MatMul:
-      Zc, Znc = mat_separate_cnc(Z)
+      Zc, Znc = mat_separate_cnc(Z, cset=True)
     else:
       Zc = set([])
       Znc = [Z]
     R = None
-    if len(Znc) >= len(Ync):
+    if len(Znc) >= 1:
+      Q = Mul(*Zc)
+      if right and Y == Znc[-1]:
+        R = ([Q] if Q != 1 else []) + Znc[0:-1]
+      if not right and Y == Znc[0]:
+        R = ([Q] if Q != 1 else []) + Znc[1:]
+    if R is None and len(Znc) >= len(Ync):
       Q = Mul(*Zc) / Mul(*Yc)
       if right and Ync == Znc[-len(Ync):]:
         R = ([Q] if Q != 1 else []) + Znc[0:-len(Ync)]
