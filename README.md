@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-04-29T06:23:30Z" -->
+<!-- Time-stamp: "2022-04-29T07:02:09Z" -->
 
 Some tools for sympy matrices.
 
@@ -67,9 +67,9 @@ M2*M1
 ```python
 >>> z = M1 * M2 + (M2 + M1) * M1 + (M2 + M1) * (M1 ** 2) + (M2 + M1) * M2 + 3 * M1
 >>> mat_collect(z, M1)
-(M1 + M2 + 3*I)*M1 + (M1 + M2)*M1**2 + (M1 + M2)*M2 + M1*M2
+(M1 + M2)*M1**2 + (M1 + M2)*M2 + (3*I + M1 + M2)*M1 + M1*M2
 >>> mat_collect(z, M1, expand_pow=True)
-(M1 + M2 + (M1 + M2)*M1 + 3*I)*M1 + (M1 + M2)*M2 + M1*M2
+(M1 + M2)*M2 + ((M1 + M2)*M1 + 3*I + M1 + M2)*M1 + M1*M2
 ```
 
 ```python

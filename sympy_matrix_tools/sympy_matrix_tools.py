@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.0.5' # Time-stamp: <2022-04-29T06:19:55Z>
+__version__ = '0.0.6' # Time-stamp: <2022-04-29T06:49:03Z>
 ## Language: Japanese/UTF-8
 
 import sympy
@@ -166,11 +166,14 @@ def mat_collect (X, Y, right=False, expand_pow=False):
   lc = [x for x in lco if x.is_commutative]
   lnc = [x for x in lco if not x.is_commutative]
   if lnc:
-    A = MatAdd(*lnc)
+    if len(lnc) == 1:
+      A = lnc[0]
+    else:
+      A = MatAdd(*lnc)
     if lc:
       if not A.is_square:
         ValueError("When adding, scalar is added by a non squared matrix.")
-      A = MatAdd(A, MatMul(Add(*list(lc)), Identity(A.rows)))
+      A = A + Add(*list(lc)) * Identity(A.rows)
     return MatAdd(MatMul(A, Y), *lnco)
   elif lc:
     return MatAdd(MatMul(Add(*list(lc)), Y), *lnco)
