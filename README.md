@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-04-29T08:03:16Z" -->
+<!-- Time-stamp: "2022-04-29T11:51:20Z" -->
 
 Some tools for sympy matrices.
 
@@ -106,6 +106,21 @@ x1*(x1*(M1 + M2) + (M1 + M2)*M1)*M1 + (M1 + M2)*M2 + 3*M1 + M1*M2
 x1*(M1 + M2) + (M1 + M2)*M1
 >>> mat_divide(z2, x1 * M1, right=True)
 (3/x1)*I + x1*(M1 + M2) + (M1 + M2)*M1 + 1/x1*(M1 + M2)*M2*M1**(-1) + 1/x1*M1*M2*M1**(-1)
+```
+
+```python
+>>> z = x1 ** N * M1**N + x1 * M1 ** 2
+>>> z2 = mat_collect(z, x1 *  M1 ** 2, expand_pow=2)
+>>> z2
+x1*((x1*x1**(N - 2))*M1**(N - 2) + I)*M1**2
+>>> z2.args[1]
+(x1*x1**(N - 2))*M1**(N - 2) + I
+>>> partial_apply(z2, z2.args[1], lambda y: y.expand().doit())
+x1*((x1**N/x1)*M1**(N - 2) + I)*M1**2
+>>> mat_collect(z, x1 *  M1 ** 2, expand_pow=2, expand_inner=True)
+x1*((x1**N/x1)*M1**(N - 2) + I)*M1**2
+>>> mat_collect(z, x1 *  M1 ** 2, expand_pow={x1**N: 1, M1**N: 2})
+x1*(x1**(N - 1)*M1**(N - 2) + I)*M1**2
 ```
 
 ## Author

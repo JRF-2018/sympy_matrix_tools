@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.0.7' # Time-stamp: <2022-04-29T08:01:43Z>
+__version__ = '0.0.8' # Time-stamp: <2022-04-29T11:54:11Z>
 ## Language: Japanese/UTF-8
 
 import sympy
@@ -26,8 +26,57 @@ def partial_apply (X, arg, applyf):
   repl = applyf(arg)
   return X.subs(arg, repl)
 
+def _expand_pow (X, expand_pow=True, right=False):
+  assert X.func == MatPow or X.func == Pow
+  l = []
+  pow = X.args[1]
+  q = X.args[0]
+  if pow.is_integer and pow.is_number:
+    if pow == 0:
+      if q.is_commutative:
+        q = Integer(1)
+      else:
+        q = Identity(q.rows)
+      pow = 1
+    elif pow < 0:
+      q = q ** -1
+      pow = -pow
+    return [q] * pow
+  else:
+    if isinstance(expand_pow, dict):
+      if X not in expand_pow:
+        if 'default' in expand_pow:
+          expand_pow = expand_pow['default']
+        if True in expand_pow:
+          expand_pow = expand_pow[True]
+        else:
+          return [X]
+      else:
+        expand_pow = expand_pow[X]
+    if expand_pow is True:
+      return [X]
+    elif isinstance(expand_pow, sympy.Basic) and not expand_pow.is_number:
+      if expand_pow == pow:
+        return [X]
+      if right:
+        return [q ** expand_pow, q ** (pow - expand_pow)]
+      else:
+        return [q ** (pow - expand_pow),  q ** expand_pow]
+    elif expand_pow is False or expand_pow == 0:
+      return [X]
+    elif expand_pow > 0:
+      if right:
+        return [q] * expand_pow + [q ** (pow - expand_pow)]
+      else:
+        return [q ** (pow - expand_pow)] + [q] * expand_pow
+    else:
+      if right: 
+        return [q ** -1] * (-expand_pow) + [q ** (pow + expand_pow)]
+      else:
+        return [q ** (pow + expand_pow)] + [q ** -1] * (-expand_pow)
 
-def mat_separate_cnc (X, expand_pow=False, cset=False):
+
+def mat_separate_cnc (X, expand_pow=False, cset=False, right=False):
   if X.func == MatMul:
     args = X.args
   else:
@@ -44,8 +93,8 @@ def mat_separate_cnc (X, expand_pow=False, cset=False):
   if expand_pow:
     l = []
     for x in Xnc:
-      if x.func == MatPow and x.args[1].is_integer and x.args[1].is_positive:
-        l += [x.args[0]] * x.args[1]
+      if x.func == MatPow and x.args[1].is_integer:
+        l += _expand_pow(x, expand_pow=expand_pow, right=right)
         if cset:
           ValueError("cset must be False.")
       else:
@@ -53,8 +102,8 @@ def mat_separate_cnc (X, expand_pow=False, cset=False):
     Xnc = l
     l = []
     for x in Xc:
-      if x.func == Pow and x.args[1].is_integer and x.args[1].is_positive:
-        l += [x.args[0]] * x.args[1]
+      if x.func == Pow and x.args[1].is_integer:
+        l += _expand_pow(x, expand_pow=expand_pow, right=right)
         if cset:
           ValueError("cset must be False.")
       else:
@@ -66,13 +115,13 @@ def mat_separate_cnc (X, expand_pow=False, cset=False):
     
 
 def mat_coeff (X, Y, right=False, expand_pow=False, nth=0):
-  Yc, Ync = mat_separate_cnc(Y, expand_pow=expand_pow, cset=False)
+  Yc, Ync = mat_separate_cnc(Y, expand_pow=expand_pow, cset=False, right=right)
   if X.func == MatAdd:
     args = X.args
   else:
     args = [X]
   for Z in args:
-    Zc, Znc = mat_separate_cnc(Z, expand_pow=expand_pow, cset=False)
+    Zc, Znc = mat_separate_cnc(Z, expand_pow=expand_pow, cset=False, right=right)
     R = None
     if len(Znc) >= 1:
       if not right and Y == Znc[-1]:
@@ -99,7 +148,7 @@ def mat_coeff (X, Y, right=False, expand_pow=False, nth=0):
         nth -= 1
         continue
       if len(R) == 0:
-        return 1
+        return Integer(1)
       elif len(R) == 1:
         return R[0]
       else:
@@ -107,14 +156,14 @@ def mat_coeff (X, Y, right=False, expand_pow=False, nth=0):
   return None
 
 
-def mat_collect (X, Y, right=False, expand_pow=False):
-  Yc, Ync = mat_separate_cnc(Y, expand_pow=expand_pow, cset=False)
+def mat_collect (X, Y, right=False, expand_pow=False, expand_inner=False):
+  Yc, Ync = mat_separate_cnc(Y, expand_pow=expand_pow, cset=False, right=right)
   if X.func != MatAdd:
     return X
   lco = []
   lnco = []
   for Z in X.args:
-    Zc, Znc = mat_separate_cnc(Z, expand_pow=expand_pow, cset=False)
+    Zc, Znc = mat_separate_cnc(Z, expand_pow=expand_pow, cset=False, right=right)
     R = None
     if len(Znc) >= 1:
       if not right and Y == Znc[-1]:
@@ -157,9 +206,14 @@ def mat_collect (X, Y, right=False, expand_pow=False):
       if not A.is_square:
         ValueError("When adding, scalar is added by a non squared matrix.")
       A = A + Add(*list(lc)) * Identity(A.rows)
+    if expand_inner:
+      A = A.expand().doit()
     return Add(Mul(A, Y), *lnco)
   elif lc:
-    return Add(Mul(Add(*list(lc)), Y), *lnco)
+    A = Add(*list(lc))
+    if expand_inner:
+      A = A.expand().doit()
+    return Add(Mul(A, Y), *lnco)
   else:
     return X
 
@@ -171,14 +225,14 @@ def mat_divide (X, Y, right=False):
       assert X.rows == Y.cols
     if not right:
       assert X.cols == Y.rows
-  Yc, Ync = mat_separate_cnc(Y, cset=False, expand_pow=True)
+  Yc, Ync = mat_separate_cnc(Y, cset=False, expand_pow=True, right=not right)
   if X.func == MatAdd:
     args = X.args
   else:
     args = [X]
   l = []
   for Z in args:
-    Zc, Znc = mat_separate_cnc(Z, cset=False, expand_pow=True)
+    Zc, Znc = mat_separate_cnc(Z, cset=False, expand_pow=True, right=not right)
     R = None
     if len(Znc) >= 1:
       Q = Mul(*Zc)
