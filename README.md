@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-04-29T05:53:09Z" -->
+<!-- Time-stamp: "2022-04-29T06:08:21Z" -->
 
 Some tools for sympy matrices.
 
@@ -102,6 +102,7 @@ M1**(-1)*((2*x1)*(M1 + M2)*M2) + M2
 >>> z2
 (x1*(M1 + M2) + (M1 + M2)*M1)*(x1*M1) + (M1 + M2)*M2 + 3*M1 + M1*M2
 >>> mat_coeff(z2, x1*M1)
+```
 
 Mixed Example:
 
