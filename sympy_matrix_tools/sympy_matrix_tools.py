@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.0.4' # Time-stamp: <2022-04-29T05:34:42Z>
+__version__ = '0.0.5' # Time-stamp: <2022-04-29T06:19:55Z>
 ## Language: Japanese/UTF-8
 
 import sympy
@@ -215,11 +215,15 @@ def mat_divide (X, Y, right=False):
         R = ([Q] if Q != 1 else []) + Znc[len(Ync):]
     if R is not None:
       if len(R) == 0:
-        l.append(Identity(Y.rows))
+        R2 = Integer(1)
       elif len(R) == 1:
-        l.append(R[0])
+        R2 = R[0]
       else:
-        l.append(MatMul(*R))
+        R2 = MatMul(*R)
+      if R2.is_commutative:
+        l.append(R2 * Identity(Y.rows))
+      else:
+        l.append(R2)
     else:
       if right:
         l.append(MatMul(Z, Y ** -1))

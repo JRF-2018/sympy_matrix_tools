@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-04-29T06:08:21Z" -->
+<!-- Time-stamp: "2022-04-29T06:23:30Z" -->
 
 Some tools for sympy matrices.
 
@@ -114,7 +114,7 @@ Mixed Example:
 >>> mat_coeff(z2, x1 * M1)
 x1*(M1 + M2) + (M1 + M2)*M1
 >>> mat_divide(z2, x1 * M1, right=True)
-((M1 + M2)*M2)*(1/x1*M1**(-1)) + (M1*M2)*(1/x1*M1**(-1)) + x1*(M1 + M2) + (M1 + M2)*M1 + 3/x1
+(3/x1)*I + ((M1 + M2)*M2)*(1/x1*M1**(-1)) + (M1*M2)*(1/x1*M1**(-1)) + x1*(M1 + M2) + (M1 + M2)*M1
 ```
 
 ## Author
