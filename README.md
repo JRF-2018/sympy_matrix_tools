@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-05-03T13:36:17Z" -->
+<!-- Time-stamp: "2022-05-03T14:49:30Z" -->
 
 Some tools for SymPy matrices.
 
@@ -202,6 +202,8 @@ Sum(g(m), (m, 0, tau)) + Sum(f(_xi, m) + f(_xi, 2*m), (_xi, 0, T), (m, 0, tau))
 Sum(g(m), (m, 0, tau)) + Sum(f(n, m) + f(n, 2*m), (n, 0, T), (m, 0, tau))
 
 ```
+
+Partially expand symbolic series.
 
 ```python
 >>> z = Sum(f(n + 1), (n, 0, T))
