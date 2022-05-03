@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.0.11' # Time-stamp: <2022-04-30T14:24:39Z>
+__version__ = '0.1.0' # Time-stamp: <2022-05-01T14:24:41Z>
 ## Language: Japanese/UTF-8
 
-import sympy
-from sympy import Mul, Add, MatMul, MatAdd, Integer, Identity, MatPow, Pow
+from sympy import Basic, Mul, Add, MatMul, MatAdd, Integer, \
+  Identity, MatPow, Pow
 
 
 def _MatMul_fixed_args_cnc (self, cset=False, warn=True, split_1=True):
@@ -57,7 +57,7 @@ def _expand_pow (X, expand_pow=True, right=True):
         expand_pow = expand_pow[X]
     if expand_pow is True:
       return [X]
-    elif isinstance(expand_pow, sympy.Basic) and not expand_pow.is_number:
+    elif isinstance(expand_pow, Basic) and not expand_pow.is_number:
       if expand_pow == pow:
         return [X]
       if right:
@@ -102,7 +102,7 @@ def mat_separate_cnc (X, expand_pow=False, cset=False, right=True):
       if x.func == MatPow and x.args[1].is_integer:
         l += _expand_pow(x, expand_pow=expand_pow, right=right)
         if cset:
-          ValueError("cset must be False.")
+          raise ValueError("cset must be False.")
       else:
         l.append(x)
     Xnc = l
@@ -111,7 +111,7 @@ def mat_separate_cnc (X, expand_pow=False, cset=False, right=True):
       if x.func == Pow and x.args[1].is_integer:
         l += _expand_pow(x, expand_pow=expand_pow, right=right)
         if cset:
-          ValueError("cset must be False.")
+          raise ValueError("cset must be False.")
       else:
         l.append(x)
     Xc = l
@@ -214,7 +214,7 @@ def mat_collect (X, Y, right=False, expand_pow=False, expand_inner=False):
       A = Add(*lnc)
     if lc:
       if not A.is_square:
-        ValueError("When adding, scalar is added by a non squared matrix.")
+        raise ValueError("When adding, scalar is added by a non squared matrix.")
       A = A + Add(*list(lc)) * Identity(A.rows)
     if expand_inner:
       A = A.expand().doit()
