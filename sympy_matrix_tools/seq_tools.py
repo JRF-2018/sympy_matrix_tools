@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.0' # Time-stamp: <2022-05-03T13:29:37Z>
+__version__ = '0.1.1' # Time-stamp: <2022-05-04T11:38:09Z>
 ## Language: Japanese/UTF-8
 
 import sympy
@@ -146,12 +146,11 @@ def Sum_Product_step(z, step=1, begin=None, end=None,
   if end is not None:
     end = sympify(end)
 
+  op0 = z.func
   if issubclass(z.func, Sum):
-    op0 = Sum
     op1 = Add
     inv = lambda x: -x
   else:
-    op0 = Product
     op1 = Mul
     inv = lambda x: x ** (-1)
   if where > 1:

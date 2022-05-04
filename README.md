@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-05-03T14:49:30Z" -->
+<!-- Time-stamp: "2022-05-04T12:41:22Z" -->
 
 Some tools for SymPy matrices.
 
@@ -254,6 +254,27 @@ Sum(Mf(m), (m, 0, T))
 >>> # However, z is not correctly typed.
 >>> z.is_Matrix
 False
+
+```
+
+If you want something like above, you should use MatSum.
+
+
+## Usage of MatSum and MatProduct (**Experimental**)
+
+```python
+>>> Mf = MatrixFunction("Mf", n, n)
+>>> z = MatSum(Mf(m), (m, 0, 2))
+>>> z
+MatSum(Mf(m), (m, 0, 2))
+>>> latex(z)
+'\\sum_{m=0}^{2} \\operatorname{Mf}{\\left(m \\right)}'
+>>> z = MatSum(MatSum(Mf(n + m), (m, 0, T)), (n, 0, tau))
+>>> z
+MatSum(Mf(m + n), (m, 0, T), (n, 0, tau))
+>>> z = MatProduct(Mf(m), (m, 0, T))
+>>> Product_step_forward(z)
+Mf(0)*MatProduct(Mf(m), (m, 1, T))
 
 ```
 
