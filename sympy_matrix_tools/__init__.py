@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.1' # Time-stamp: <2022-05-04T11:28:34Z>
+__version__ = '0.1.2' # Time-stamp: <2022-05-04T13:07:12Z>
 ## Language: Japanese/UTF-8
 
 from .matrix_tools import *

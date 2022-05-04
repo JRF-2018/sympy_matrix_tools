@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.1' # Time-stamp: <2022-05-04T12:28:51Z>
+__version__ = '0.1.2' # Time-stamp: <2022-05-04T13:05:15Z>
 ## Language: Japanese/UTF-8
 
 import sympy
@@ -43,16 +43,16 @@ class MatSum (Sum, MatrixExpr):
         return self.args[0].could_extract_minus_sign()
 
     def _entry(self, i, j, **kwargs):
-        return Sum(self.args[0]._entry(i, j, **kwargs))
+        return Sum(self.args[0]._entry(i, j, **kwargs), *self.args[1:])
 
     def _eval_transpose(self):
-        return self.func(*([transpose(self.args[0])] + self.args[1:])).doit()
+        return self.func(*([transpose(self.args[0])] + list(self.args[1:]))).doit()
 
     def _eval_adjoint(self):
-        return self.func(*([adjoint(self.args[0])] + self.args[1:])).doit()
+        return self.func(*([adjoint(self.args[0])] + list(self.args[1:]))).doit()
 
     def _eval_trace(self):
-        return Sum(*([trace(self.args[0])] + self.args[1:])).doit()
+        return Sum(*([trace(self.args[0])] + list(self.args[1:]))).doit()
 
     def doit(self, **kwargs):
         deep = kwargs.get('deep', True)
@@ -79,7 +79,7 @@ class MatProduct (Product, MatrixExpr):
         x = self.args[0].could_extract_minus_sign()
         if not x:
             return False
-        return Product(x, self.args[1:]).could_extract_minus_sign()
+        return Product(x, *self.args[1:]).could_extract_minus_sign()
 
     def doit(self, **kwargs):
         deep = kwargs.get('deep', True)

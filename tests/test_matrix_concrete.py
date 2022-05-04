@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.0' # Time-stamp: <2022-05-04T12:46:52Z>
+__version__ = '0.1.2' # Time-stamp: <2022-05-04T13:15:48Z>
 ## Language: Japanese/UTF-8
 
 import pytest
-from sympy import MatrixSymbol, Symbol, latex
+from sympy import MatrixSymbol, Symbol, Matrix, \
+    latex, Adjoint, Trace, adjoint, trace
 from sympy_matrix_tools import *
 
 f = Function("f")
@@ -15,7 +16,7 @@ T = Symbol("T", integer=True)
 tau = Symbol("tau", integer=True)
 Mf = MatrixFunction("Mf", n, n)
 
-def test_MatSum ():
+def test_MatSum_1 ():
     z = MatSum(Mf(m), (m, 0, 2))
     assert \
         z \
@@ -36,8 +37,42 @@ def test_MatSum ():
         == MatSum(Mf(m + n), (m, 0, T), (n, 0, tau))
 
 
-def test_MatProduct ():
+def test_MatSum_2 ():
+    z = MatSum(Mf(m), (m, 0, T))
+    assert \
+        z.T \
+        == MatSum(Mf(m).T, (m, 0, T))
+    assert \
+        adjoint(z) \
+        == MatSum(Adjoint(Mf(m)), (m, 0, T))
+    assert \
+        str(z.subs(n, 2).as_explicit()) \
+        == 'Matrix([[Sum((Mf(m))[0, 0], (m, 0, T)), Sum((Mf(m))[0, 1], (m, 0, T))], [Sum((Mf(m))[1, 0], (m, 0, T)), Sum((Mf(m))[1, 1], (m, 0, T))]])'
+    assert \
+        trace(z.subs(n, 2)) \
+        == Sum(Trace(Mf(m).subs(n, 2)), (m, 0, T))
+    assert \
+        z.doit() \
+        == MatSum(Mf(m), (m, 0, T))
+
+
+def test_MatProduct_1 ():
     z = MatProduct(Mf(m), (m, 0, T))
     assert \
         Product_step_forward(z) \
         == Mf(0)*MatProduct(Mf(m), (m, 1, T))
+
+def test_MatProduct_2 ():
+    z = MatProduct(Mf(m), (m, 0, T))
+    assert \
+        z.T \
+        == MatProduct(Mf(m), (m, 0, T)).T
+    assert \
+        adjoint(z) \
+        == adjoint(MatProduct(Mf(m), (m, 0, T)))
+    assert \
+        z.doit() \
+        == MatProduct(Mf(m), (m, 0, T))
+    assert \
+        str(z.subs(n, 2).as_explicit()) \
+        == 'Matrix([[MatProduct(Mf(m), (m, 0, T))[0, 0], MatProduct(Mf(m), (m, 0, T))[0, 1]], [MatProduct(Mf(m), (m, 0, T))[1, 0], MatProduct(Mf(m), (m, 0, T))[1, 1]]])'
