@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.0' # Time-stamp: <2022-05-02T12:45:45Z>
-## Language: Japanese/UTF-8
+__version__ = '0.1.3' # Time-stamp: <2022-05-05T10:10:14Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, MatMul, Rational, Identity
@@ -12,6 +11,7 @@ x1 = Symbol("x1")
 M1 = MatrixSymbol("M1", N, N)
 M2 = MatrixSymbol("M2", N, N)
 I = Identity(N)
+
 
 def test_fix_MatMul_args_cnc ():
     z = M2 + 2 * (M2 + Identity(N)) * M1 + Identity(N)

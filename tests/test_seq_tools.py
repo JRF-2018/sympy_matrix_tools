@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.0' # Time-stamp: <2022-05-03T13:10:21Z>
-## Language: Japanese/UTF-8
+__version__ = '0.1.3' # Time-stamp: <2022-05-05T10:09:53Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, MatMul, Rational, Identity, Dummy
@@ -13,6 +12,7 @@ m = Symbol("m", integer=True)
 m2 = Symbol("m2", integer=True)
 T = Symbol("T", integer=True)
 tau = Symbol("tau", integer=True)
+
 
 def test_seq_tools_1 ():
     z = Sum(g(m) + Sum(f(n, m), (n, 0, T)), (m, 0, tau)) + Sum(f(n, 0), (n, 0, tau))
@@ -98,6 +98,7 @@ def test_Sum_step_1 ():
         Sum_step_forward(z, where=-2) \
         == Sum(f(m) + Sum(f(m + n), (n, 1, T)), (m, 0, tau))
 
+
 def test_Sum_step_2 ():
     z = Sum(f(n * 2) + f(m + 1), (n, 0, T), (m, 0, tau))
     assert \
@@ -125,9 +126,6 @@ def test_Sum_step_2 ():
     assert \
         Sum_step_backward(z, where=-2) \
         == Sum(f(2*T) + f(m + 1) + Sum(f(2*n) + f(m + 1), (n, 0, T - 1)), (m, 0, tau))
-
-
-
 
 
 def test_Sum_step_3 ():

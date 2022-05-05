@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.0' # Time-stamp: <2022-05-01T14:24:41Z>
-## Language: Japanese/UTF-8
+__version__ = '0.1.3' # Time-stamp: <2022-05-05T10:00:08Z>
 
 from sympy import Basic, Mul, Add, MatMul, MatAdd, Integer, \
   Identity, MatPow, Pow

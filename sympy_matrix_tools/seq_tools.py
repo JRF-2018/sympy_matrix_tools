@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.1' # Time-stamp: <2022-05-04T11:38:09Z>
-## Language: Japanese/UTF-8
+__version__ = '0.1.3' # Time-stamp: <2022-05-05T10:01:06Z>
 
 import sympy
 from .matrix_tools import *
@@ -49,13 +48,13 @@ def Sum_Product_expand (z, expand_inner=True):
   return op1(*l)
 
 
-def Sum_expand(z, expand_inner=True):
+def Sum_expand (z, expand_inner=True):
   for x in atoms_list(z, Sum):
     z = z.subs(x, Sum_Product_expand(x, expand_inner=expand_inner))
   return z
 
 
-def Product_expand(z, expand_inner=True):
+def Product_expand (z, expand_inner=True):
   for x in atoms_list(z, Product):
     z = z.subs(x, Sum_Product_expand(x, expand_inner=expand_inner))
   return z
@@ -134,8 +133,8 @@ def Sum_swap (z, index=None, first=1):
   return z.subs(y, y2)
 
 
-def Sum_Product_step(z, step=1, begin=None, end=None,
-                     minus=False, where=-1, forward=True):
+def Sum_Product_step (z, step=1, begin=None, end=None,
+                      minus=False, where=-1, forward=True):
   assert issubclass(z.func, Sum) or issubclass(z.func, Product)
   if where < 0:
     where = len(z.args) + where
@@ -313,8 +312,8 @@ def Sum_Product_step(z, step=1, begin=None, end=None,
           return q
 
 
-def Sum_step_forward(z, step=1, begin=None, end=None,
-                     minus=False, where=-1, index=0):
+def Sum_step_forward (z, step=1, begin=None, end=None,
+                      minus=False, where=-1, index=0):
   y = nth_Sum(z, index)
   if y is None:
     raise ValueError("Illegal index.")
@@ -323,8 +322,8 @@ def Sum_step_forward(z, step=1, begin=None, end=None,
   return z.subs(y, y2)
 
 
-def Sum_step_backward(z, step=1, begin=None, end=None,
-                      minus=False, where=-1, index=0):
+def Sum_step_backward (z, step=1, begin=None, end=None,
+                       minus=False, where=-1, index=0):
   y = nth_Sum(z, index)
   if y is None:
     raise ValueError("Illegal index.")
@@ -333,8 +332,8 @@ def Sum_step_backward(z, step=1, begin=None, end=None,
   return z.subs(y, y2)
 
 
-def Product_step_forward(z, step=1, begin=None, end=None,
-                         minus=False, where=-1, index=0):
+def Product_step_forward (z, step=1, begin=None, end=None,
+                          minus=False, where=-1, index=0):
   y = nth_Product(z, index)
   if y is None:
     raise ValueError("Illegal index.")
@@ -343,8 +342,8 @@ def Product_step_forward(z, step=1, begin=None, end=None,
   return z.subs(y, y2)
 
 
-def Product_step_backward(z, step=1, begin=None, end=None,
-                          minus=False, where=-1, index=0):
+def Product_step_backward (z, step=1, begin=None, end=None,
+                           minus=False, where=-1, index=0):
   y = nth_Product(z, index)
   if y is None:
     raise ValueError("Illegal index.")

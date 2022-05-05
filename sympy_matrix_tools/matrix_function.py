@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.0' # Time-stamp: <2022-05-03T05:13:27Z>
-## Language: Japanese/UTF-8
+__version__ = '0.1.3' # Time-stamp: <2022-05-05T09:59:50Z>
 
 from sympy import Function, MatrixExpr, sympify
 from sympy.matrices.expressions.matexpr import MatrixElement, _LeftRightArgs
@@ -28,14 +27,14 @@ class MatrixFunction0 (Function, MatrixExpr):
     def shape (self):
         return self.args[0], self.args[1]
 
-    def _entry(self, i, j, **kwargs):
+    def _entry (self, i, j, **kwargs):
         return MatrixElement(self, i, j)
 
 
 class AppliedMatrixUndef0 (MatrixFunction0):
     is_number = False
 
-    def __new__(cls, *args, **options):
+    def __new__ (cls, *args, **options):
         args = list(map(sympify, args))
         u = [a.name for a in args if isinstance(a, UndefinedFunction)
              or isinstance(a, UndefinedMatrixFunction0)]
@@ -45,16 +44,16 @@ class AppliedMatrixUndef0 (MatrixFunction0):
         obj = super().__new__(cls, *args, **options)
         return obj
 
-    def _eval_as_leading_term(self, x, logx=None, cdir=0):
+    def _eval_as_leading_term (self, x, logx=None, cdir=0):
         return self
 
     @property
-    def _diff_wrt(self):
+    def _diff_wrt (self):
         return True
 
 
 class UndefinedMatrixFunction0(UndefinedFunction):
-    def __new__(mcl, name, bases=(AppliedMatrixUndef0,), __dict__=None, **kwargs):
+    def __new__ (mcl, name, bases=(AppliedMatrixUndef0,), __dict__=None, **kwargs):
         obj = super().__new__(mcl, name, bases, __dict__, **kwargs)
         return obj
 
@@ -97,7 +96,7 @@ class AppliedMatrixUndef (MatrixFunction):
             | self.shape[0].free_symbols \
             | self.shape[1].free_symbols
 
-    def _eval_subs(self, old, new):
+    def _eval_subs (self, old, new):
         n, m = self.shape
         n_new = n._subs(old, new)
         m_new = m._subs(old, new)
@@ -120,7 +119,7 @@ class AppliedMatrixUndef (MatrixFunction):
 
 
 class UndefinedMatrixFunction(UndefinedFunction):
-    def __new__(mcl, name, n, m, bases=(AppliedMatrixUndef,), __dict__=None, **kwargs):
+    def __new__ (mcl, name, n, m, bases=(AppliedMatrixUndef,), __dict__=None, **kwargs):
         n, m = sympify(n), sympify(m)
 
         MatrixExpr._check_dim(n)
@@ -132,12 +131,12 @@ class UndefinedMatrixFunction(UndefinedFunction):
 
     _kwargs = {}  # type: tDict[str, Optional[bool]]
 
-    def __hash__(self):
+    def __hash__ (self):
         return hash((self.class_key(), frozenset(self._kwargs.items())))
 
-    def __eq__(self, other):
+    def __eq__ (self, other):
         return super().__eq__(other) and \
             self.shape == other.shape
 
-    def __ne__(self, other):
+    def __ne__ (self, other):
         return not self == other

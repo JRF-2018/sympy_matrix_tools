@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.2' # Time-stamp: <2022-05-04T13:15:48Z>
-## Language: Japanese/UTF-8
+__version__ = '0.1.3' # Time-stamp: <2022-05-05T10:09:32Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, Matrix, \
@@ -14,7 +13,9 @@ m = Symbol("m", integer=True)
 m2 = Symbol("m2", integer=True)
 T = Symbol("T", integer=True)
 tau = Symbol("tau", integer=True)
+M1 = MatrixSymbol("M1", n, n)
 Mf = MatrixFunction("Mf", n, n)
+
 
 def test_MatSum_1 ():
     z = MatSum(Mf(m), (m, 0, 2))
@@ -62,6 +63,7 @@ def test_MatProduct_1 ():
         Product_step_forward(z) \
         == Mf(0)*MatProduct(Mf(m), (m, 1, T))
 
+
 def test_MatProduct_2 ():
     z = MatProduct(Mf(m), (m, 0, T))
     assert \
@@ -76,3 +78,15 @@ def test_MatProduct_2 ():
     assert \
         str(z.subs(n, 2).as_explicit()) \
         == 'Matrix([[MatProduct(Mf(m), (m, 0, T))[0, 0], MatProduct(Mf(m), (m, 0, T))[0, 1]], [MatProduct(Mf(m), (m, 0, T))[1, 0], MatProduct(Mf(m), (m, 0, T))[1, 1]]])'
+
+
+def test_Misc_1 ():
+    assert \
+        MatSum(m * M1, (m, 0, 2)).doit() \
+        == 3*M1
+    assert \
+        MatSum(Mf(m), (m, 0, 2)).doit() \
+        == Mf(0) + Mf(1) + Mf(2)
+    assert \
+        MatProduct(Mf(m), (m, 0, 2)).doit() \
+        == Mf(0)*Mf(1)*Mf(2)

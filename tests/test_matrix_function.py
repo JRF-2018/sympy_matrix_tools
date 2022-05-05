@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.0' # Time-stamp: <2022-05-03T05:20:20Z>
-## Language: Japanese/UTF-8
+__version__ = '0.1.3' # Time-stamp: <2022-05-05T10:10:04Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, ZeroMatrix, Identity, Matrix, Dummy, Derivative, Subs, Lambda
@@ -14,6 +13,7 @@ M2 = MatrixSymbol("M2", N + 1, N + 1)
 I = Identity(N + 1)
 Z = ZeroMatrix(N + 1, N + 1)
 f = Function("f")
+
 
 def test_matrix_function ():
     Mf = MatrixFunction("Mf", N + 1, N + 1)
@@ -68,7 +68,6 @@ def test_matrix_function ():
     assert \
         (Mf3(x3).T * M3 * Mf3(x3)).subs(Mf3(x3), x3).diff(x3).subs(x3, Mf3(x3)) \
         == M3*Mf3(x3) + M3.T*Mf3(x3)
-
 
 
 def test_matrix_function_0 ():

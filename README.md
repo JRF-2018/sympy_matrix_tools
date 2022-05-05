@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-05-04T12:41:22Z" -->
+<!-- Time-stamp: "2022-05-05T10:06:22Z" -->
 
 Some tools for SymPy matrices.
 
@@ -180,8 +180,7 @@ Sum(g(m) + Sum(f(n, m), (n, 0, T)), (m, 0, tau))
 Sum(f(n, 0), (n, 0, tau)) + Sum(g(m), (m, 0, tau)) + Sum(f(n, m), (n, 0, T), (m, 0, tau))
 >>> Sum_swap(Sum_expand(z))
 Sum(f(n, 0), (n, 0, tau)) + Sum(g(m), (m, 0, tau)) + Sum(f(n, m), (m, 0, tau), (n, 0, T))
->>> z2 = Sum_collect(z)
->>> z2
+>>> Sum_collect(z)
 Sum(f(_xi, 0) + g(_xi) + Sum(f(n, _xi), (n, 0, T)), (_xi, 0, tau))
 
 ```
@@ -288,6 +287,8 @@ $ python -m doctest README.md -v
 ## Author
 
 JRF ( http://jrf.cocolog-nifty.com/statuses )
+
+The author is Japanese.  I would be grateful if you could ask in Japanese.
 
 
 ## License
