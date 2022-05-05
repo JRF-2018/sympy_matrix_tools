@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-05-05T10:06:22Z" -->
+<!-- Time-stamp: "2022-05-05T23:03:24Z" -->
 
 Some tools for SymPy matrices.
 
@@ -268,9 +268,11 @@ If you want something like above, you should use MatSum.
 MatSum(Mf(m), (m, 0, 2))
 >>> latex(z)
 '\\sum_{m=0}^{2} \\operatorname{Mf}{\\left(m \\right)}'
->>> z = MatSum(MatSum(Mf(n + m), (m, 0, T)), (n, 0, tau))
+>>> z = MatSum(MatSum(Mf(n + m), (m, 0, T)), (m2, 0, tau))
 >>> z
-MatSum(Mf(m + n), (m, 0, T), (n, 0, tau))
+MatSum(Mf(m + n), (m, 0, T), (m2, 0, tau))
+>>> Sum_step_forward(z)
+MatSum(Mf(m + n), (m, 0, T)) + MatSum(Mf(m + n), (m, 0, T), (m2, 1, tau))
 >>> z = MatProduct(Mf(m), (m, 0, T))
 >>> Product_step_forward(z)
 Mf(0)*MatProduct(Mf(m), (m, 1, T))
@@ -288,7 +290,7 @@ $ python -m doctest README.md -v
 
 JRF ( http://jrf.cocolog-nifty.com/statuses )
 
-The author is Japanese.  I would be grateful if you could ask in Japanese.
+The author is a Japanese.  I would be grateful if you could ask in Japanese.
 
 
 ## License
