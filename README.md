@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-05-05T23:03:24Z" -->
+<!-- Time-stamp: "2022-05-09T10:59:30Z" -->
 
 Some tools for SymPy matrices.
 
@@ -290,7 +290,7 @@ $ python -m doctest README.md -v
 
 JRF ( http://jrf.cocolog-nifty.com/statuses )
 
-The author is a Japanese.  I would be grateful if you could ask in Japanese.
+The author is Japanese.  I would be grateful if you could ask in Japanese.
 
 
 ## License

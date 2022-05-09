@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.3' # Time-stamp: <2022-05-05T10:01:06Z>
+__version__ = '0.1.4' # Time-stamp: <2022-05-09T10:59:22Z>
 
 import sympy
 from .matrix_tools import *
@@ -98,11 +98,11 @@ def Sum_collect (z, level=1):
   return Add(*lo)
 
 
-def Sum_swap (z, index=None, first=1):
+def Sum_swap (z, nth=None, first=1):
   y = None
   assert first >= 1
-  if index is not None:
-    y = nth_Sum(z, index)
+  if nth is not None:
+    y = nth_Sum(z, nth)
     if y.func != Sum or len(y.args) < first + 2:
       raise ValueError("No swappables.")
   else:
@@ -313,8 +313,8 @@ def Sum_Product_step (z, step=1, begin=None, end=None,
 
 
 def Sum_step_forward (z, step=1, begin=None, end=None,
-                      minus=False, where=-1, index=0):
-  y = nth_Sum(z, index)
+                      minus=False, where=-1, nth=0):
+  y = nth_Sum(z, nth)
   if y is None:
     raise ValueError("Illegal index.")
   y2 = Sum_Product_step(y, step=step, begin=begin, end=end,
@@ -323,8 +323,8 @@ def Sum_step_forward (z, step=1, begin=None, end=None,
 
 
 def Sum_step_backward (z, step=1, begin=None, end=None,
-                       minus=False, where=-1, index=0):
-  y = nth_Sum(z, index)
+                       minus=False, where=-1, nth=0):
+  y = nth_Sum(z, nth)
   if y is None:
     raise ValueError("Illegal index.")
   y2 = Sum_Product_step(y, step=step, begin=begin, end=end,
@@ -333,8 +333,8 @@ def Sum_step_backward (z, step=1, begin=None, end=None,
 
 
 def Product_step_forward (z, step=1, begin=None, end=None,
-                          minus=False, where=-1, index=0):
-  y = nth_Product(z, index)
+                          minus=False, where=-1, nth=0):
+  y = nth_Product(z, nth)
   if y is None:
     raise ValueError("Illegal index.")
   y2 = Sum_Product_step(y, step=step, begin=begin, end=end,
@@ -343,8 +343,8 @@ def Product_step_forward (z, step=1, begin=None, end=None,
 
 
 def Product_step_backward (z, step=1, begin=None, end=None,
-                           minus=False, where=-1, index=0):
-  y = nth_Product(z, index)
+                           minus=False, where=-1, nth=0):
+  y = nth_Product(z, nth)
   if y is None:
     raise ValueError("Illegal index.")
   y2 = Sum_Product_step(y, step=step, begin=begin, end=end,
