@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-05-09T10:59:30Z" -->
+<!-- Time-stamp: "2022-05-13T22:00:16Z" -->
 
 Some tools for SymPy matrices.
 
@@ -122,6 +122,23 @@ x1*((x1**N/x1)*M1**(N - 2) + I)*M1**2
 x1*((x1**N/x1)*M1**(N - 2) + I)*M1**2
 >>> mat_collect(z, x1 *  M1 ** 2, expand_pow={x1**N: 1, M1**N: 2})
 x1*(x1**(N - 1)*M1**(N - 2) + I)*M1**2
+
+```
+
+```python
+>>> N2 = Symbol("N2", integer=True)
+>>> M3 = MatrixSymbol("M3", N, N2)
+>>> M4 = MatrixSymbol("M4", N2, N)
+>>> z = M1 + ((M3 * M4) ** -2) * M3 * M4
+>>> z
+(M3*M4)**(-2)*M3*M4 + M1
+>>> mat_trivial_divide(z)
+(M3*M4)**(-1) + M1
+>>> z = M1 + ((M3 * M4) ** -1) * M3 * M4
+>>> z
+(M3*M4)**(-1)*M3*M4 + M1
+>>> mat_trivial_divide(z)
+I + M1
 
 ```
 

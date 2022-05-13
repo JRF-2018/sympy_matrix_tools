@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.3' # Time-stamp: <2022-05-05T10:10:14Z>
+__version__ = '0.1.6' # Time-stamp: <2022-05-13T22:02:03Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, MatMul, Rational, Identity
@@ -207,3 +207,16 @@ def test_mixed_2 ():
         == x1*(x1**(N - 1)*M1**(N - 2) + I)*M1**2
 
     
+def test_mat_trivial_divide ():
+    N2 = Symbol("N2", integer=True)
+    M3 = MatrixSymbol("M3", N, N2)
+    M4 = MatrixSymbol("M4", N2, N)
+    
+    z = M1 + ((M3 * M4) ** -2) * M3 * M4
+    assert \
+        mat_trivial_divide(z) \
+        == (M3*M4)**(-1) + M1
+    z = M1 + ((M3 * M4) ** -1) * M3 * M4
+    assert \
+        mat_trivial_divide(z) \
+        == M1 + Identity(N)

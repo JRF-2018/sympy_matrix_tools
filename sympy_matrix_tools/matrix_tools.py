@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.5' # Time-stamp: <2022-05-13T19:35:41Z>
+__version__ = '0.1.6' # Time-stamp: <2022-05-13T21:54:37Z>
 
 from sympy import Basic, Mul, Add, MatMul, MatAdd, Integer, \
-  Identity, MatPow, Pow
+  Identity, MatPow, Pow, Inverse
 
 
 def _MatMul_fixed_args_cnc (self, cset=False, warn=True, split_1=True):
@@ -277,3 +277,26 @@ def mat_divide (X, Y, right=False):
       else:
         l.append(Mul(Y ** -1, Z))
   return Add(*l)
+
+
+def mat_trivial_divide (X):
+    d = {}
+    for Z in X.atoms(MatMul):
+        for Y in Z.atoms(Inverse):
+            if issubclass(Y.args[0].func, MatMul):
+                Q = Y.args[0].args
+            else:
+                Q = [Y.args[0]]
+            d[MatMul(*Q, Y)] = Identity(Y.rows)
+            d[MatMul(Y, *Q)] = Identity(Y.rows)
+        for Y in Z.atoms(MatPow):
+            if Y.args[1].is_number and Y.args[1] < 0:
+                if issubclass(Y.args[0].func, MatMul):
+                    Q = Y.args[0].args
+                else:
+                    Q = [Y.args[0]]
+                d[MatMul(*Q, Y)] = Y.args[0] ** (Y.args[1] + 1)
+                d[MatMul(Y, *Q)] = Y.args[0] ** (Y.args[1] + 1)
+    for n, v in d.items():
+        X = X.subs(n, v)
+    return X
