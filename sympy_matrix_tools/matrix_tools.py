@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.3' # Time-stamp: <2022-05-05T10:00:08Z>
+__version__ = '0.1.5' # Time-stamp: <2022-05-13T19:35:41Z>
 
 from sympy import Basic, Mul, Add, MatMul, MatAdd, Integer, \
   Identity, MatPow, Pow
@@ -217,7 +217,10 @@ def mat_collect (X, Y, right=False, expand_pow=False, expand_inner=False):
       A = A + Add(*list(lc)) * Identity(A.rows)
     if expand_inner:
       A = A.expand().doit()
-    return Add(Mul(A, Y), *lnco)
+    if right:
+      return Add(Mul(Y, A), *lnco)
+    else:
+      return Add(Mul(A, Y), *lnco)
   elif lc:
     A = Add(*list(lc))
     if expand_inner:
@@ -231,9 +234,9 @@ def mat_divide (X, Y, right=False):
   assert Y.is_commutative or Y.is_square
   if not Y.is_commutative:
     if right:
-      assert X.rows == Y.cols
-    if not right:
       assert X.cols == Y.rows
+    if not right:
+      assert X.rows == Y.cols
   Yc, Ync = mat_separate_cnc(Y, cset=False, expand_pow=True,
                              right=right)
   if X.func == MatAdd:
