@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.4' # Time-stamp: <2022-05-09T10:59:22Z>
+__version__ = '0.1.7' # Time-stamp: <2022-05-14T19:47:43Z>
 
 import sympy
 from .matrix_tools import *
@@ -316,7 +316,7 @@ def Sum_step_forward (z, step=1, begin=None, end=None,
                       minus=False, where=-1, nth=0):
   y = nth_Sum(z, nth)
   if y is None:
-    raise ValueError("Illegal index.")
+    raise ValueError("Illegal nth indexing.")
   y2 = Sum_Product_step(y, step=step, begin=begin, end=end,
                         minus=minus, where=where, forward=True)
   return z.subs(y, y2)
@@ -326,7 +326,7 @@ def Sum_step_backward (z, step=1, begin=None, end=None,
                        minus=False, where=-1, nth=0):
   y = nth_Sum(z, nth)
   if y is None:
-    raise ValueError("Illegal index.")
+    raise ValueError("Illegal nth indexing.")
   y2 = Sum_Product_step(y, step=step, begin=begin, end=end,
                         minus=minus, where=where, forward=False)
   return z.subs(y, y2)
@@ -336,7 +336,7 @@ def Product_step_forward (z, step=1, begin=None, end=None,
                           minus=False, where=-1, nth=0):
   y = nth_Product(z, nth)
   if y is None:
-    raise ValueError("Illegal index.")
+    raise ValueError("Illegal nth indexing.")
   y2 = Sum_Product_step(y, step=step, begin=begin, end=end,
                         minus=minus, where=where, forward=True)
   return z.subs(y, y2)
@@ -346,7 +346,23 @@ def Product_step_backward (z, step=1, begin=None, end=None,
                            minus=False, where=-1, nth=0):
   y = nth_Product(z, nth)
   if y is None:
-    raise ValueError("Illegal index.")
+    raise ValueError("Illegal nth indexing.")
   y2 = Sum_Product_step(y, step=step, begin=begin, end=end,
                         minus=minus, where=where, forward=False)
+  return z.subs(y, y2)
+
+
+def _Sum_coeff_mul (z, x, right=True):
+  assert issubclass(z.func, Sum)
+  if right:
+    return z.func(z.args[0] * (x ** -1), z.args[1:]) * x
+  else:
+    return x * z.func((x ** -1) * z.args[0], z.args[1:])
+
+
+def Sum_coeff_mul (z, x, right=True, nth=0):
+  y = nth_Sum(z, nth)
+  if y is None:
+    raise ValueError("Illegal nth indexing.")
+  y2 = _Sum_coeff_mul(y, x, right=right)
   return z.subs(y, y2)

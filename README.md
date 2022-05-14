@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-05-13T22:00:16Z" -->
+<!-- Time-stamp: "2022-05-14T19:49:51Z" -->
 
 Some tools for SymPy matrices.
 
@@ -256,6 +256,21 @@ Sum(f(m) + Sum(f(m + n), (n, 1, T)), (m, 0, tau))
 ```
 
 I intentionally omitted infinite checks, etc.
+
+```python
+>>> w = Function("w")
+>>> y = Function("y")
+>>> t = Symbol("T", integer=True)
+>>> beta = Symbol("beta", real=True)
+
+>>> z = Sum_step_forward(Sum(beta ** (t - tau) * w(y(t)), (t, tau, T)))
+>>> z
+w(y(tau)) + Sum(beta**(T - tau)*w(y(T)), (T, tau + 1, T))
+>>> z = Sum_coeff_mul(z, beta)
+>>> z
+beta*Sum(beta**(T - tau)*w(y(T))/beta, (T, tau + 1, T)) + w(y(tau))
+
+```
 
 Mixed Example:
 
