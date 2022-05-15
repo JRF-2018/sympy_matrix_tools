@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.7' # Time-stamp: <2022-05-14T19:47:43Z>
+__version__ = '0.1.8' # Time-stamp: <2022-05-15T11:51:16Z>
 
 import sympy
 from .matrix_tools import *
@@ -354,6 +354,12 @@ def Product_step_backward (z, step=1, begin=None, end=None,
 
 def _Sum_coeff_mul (z, x, right=True):
   assert issubclass(z.func, Sum)
+
+  fs = x.free_symbols
+  for l in z.args[1:]:
+    if l.args[0] in fs:
+      raise ValueError("'%s' is binding." % str(l.args[0]))
+
   if right:
     return z.func(z.args[0] * (x ** -1), z.args[1:]) * x
   else:

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.7' # Time-stamp: <2022-05-14T19:53:23Z>
+__version__ = '0.1.8' # Time-stamp: <2022-05-15T11:52:54Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, MatMul, Rational, Identity, Dummy
@@ -204,14 +204,17 @@ def test_Sum_MatrixFunction ():
 def test_Sum_coeff_mul ():
     w = Function("w")
     y = Function("y")
-    t = Symbol("T", integer=True)
+    t = Symbol("t", integer=True)
     beta = Symbol("beta", real=True)
     z = Sum_step_forward(Sum(beta ** (t - tau) * w(y(t)), (t, tau, T)))
     assert \
         z \
-        == w(y(tau)) + Sum(beta**(T - tau)*w(y(T)), (T, tau + 1, T))
+        == w(y(tau)) + Sum(beta**(t - tau)*w(y(t)), (t, tau + 1, T))
     z = Sum_coeff_mul(z, beta)
     assert \
         z \
-        == beta*Sum(beta**(T - tau)*w(y(T))/beta, (T, tau + 1, T)) + w(y(tau))
+        == beta*Sum(beta**(t - tau)*w(y(t))/beta, (t, tau + 1, T)) + w(y(tau))
+    with pytest.raises(ValueError, match=r".*is binding.*"):
+        Sum_coeff_mul(z, y(t))
+    
 
