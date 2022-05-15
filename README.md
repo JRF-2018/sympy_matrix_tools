@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-05-15T11:48:40Z" -->
+<!-- Time-stamp: "2022-05-15T13:22:54Z" -->
 
 Some tools for SymPy matrices.
 
@@ -311,12 +311,27 @@ Mf(0)*MatProduct(Mf(m), (m, 1, T))
 
 ```
 
+
 ## Tests (for developers)
 
 ```sh
 $ python -m pytest -s
 $ python -m doctest README.md -v
+
 ```
+
+
+## Remark
+
+The primary purpose of sympy_matrix_tools is for my personal use and experimental use. Of course, I would appreciate it if other people could use it, but since MatrixFunction etc. may appear at any time in the original SymPy, when using it, it may be better to specify the version of sympy_matrix_tools and SymPy. Or you can think it's enough to make a notebook like me and leave the output from time to time.
+
+Normally, I should write my hopes in SymPy's Issues and have them incorporated, but I can't speak English, I don't have much technical skills, and I can't handle it that much.
+
+An actual usage example is on the following repository (in Japanese).
+
+《JRF-2018/economy_control: 村田安雄『動的経済システムの最適制御』の検算＆シミュレーション。》  
+https://github.com/JRF-2018/economy_control
+
 
 ## Author
 
