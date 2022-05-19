@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.8' # Time-stamp: <2022-05-15T11:47:53Z>
+__version__ = '0.1.9' # Time-stamp: <2022-05-19T10:35:04Z>
 
 from .matrix_tools import *
 from .matrix_function import *

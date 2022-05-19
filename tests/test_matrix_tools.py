@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.6' # Time-stamp: <2022-05-13T22:02:03Z>
+__version__ = '0.1.9' # Time-stamp: <2022-05-19T11:39:19Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, MatMul, Rational, Identity
@@ -19,6 +19,21 @@ def test_fix_MatMul_args_cnc ():
         z.coeff(M1)
     fix_MatMul_args_cnc()
     assert z.coeff(M1) == 2*I + 2*M2
+
+
+def test_fix_ExpectationMatrix_expand ():
+    from sympy.stats import Expectation, ExpectationMatrix
+    from sympy.stats.rv import RandomSymbol, RandomMatrixSymbol
+    
+    zeta = RandomMatrixSymbol("zeta", 2, 1)
+    A = MatrixSymbol("A", 2, 2)
+    assert \
+        Expectation(zeta.T * A).expand() \
+        == ExpectationMatrix(zeta.T * A)
+    fix_ExpectationMatrix_expand()
+    assert \
+        Expectation(zeta.T * A).expand() \
+        == ExpectationMatrix(zeta.T) * A
 
 
 def test_collect_1 ():

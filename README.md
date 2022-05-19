@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-05-15T13:22:54Z" -->
+<!-- Time-stamp: "2022-05-19T10:47:08Z" -->
 
 Some tools for SymPy matrices.
 
@@ -35,6 +35,43 @@ To fix it...
 >>> sympy_matrix_tools.fix_MatMul_args_cnc()
 >>> z.coeff(M1)
 2*I + 2*M2
+
+```
+
+## Fix ExpectationMatrix.expand
+
+This module can fix ExpectationMatrix.expand that currently (SymPy
+version 1.10.1) works like below.
+
+``` python
+>>> from sympy.stats import Expectation
+>>> from sympy.stats.rv import RandomSymbol, RandomMatrixSymbol
+
+>>> epsilon = RandomSymbol("epsilon")
+>>> zeta = RandomMatrixSymbol("zeta", 2, 1)
+>>> A = MatrixSymbol("A", 2, 2)
+
+>>> Expectation(A * zeta).expand()
+A*ExpectationMatrix(zeta)
+>>> Expectation(zeta.T * A).expand()
+ExpectationMatrix(zeta.T*A)
+>>> Expectation(epsilon * Identity(1)).expand()
+ExpectationMatrix(epsilon*I)
+
+```
+
+To fix it...
+
+``` python
+>>> import sympy_matrix_tools
+>>> sympy_matrix_tools.fix_ExpectationMatrix_expand()
+
+>>> Expectation(A * zeta).expand()
+A*ExpectationMatrix(zeta)
+>>> Expectation(zeta.T * A).expand()
+ExpectationMatrix(zeta.T)*A
+>>> Expectation(epsilon * Identity(1)).expand()
+Expectation(epsilon)*I
 
 ```
 

@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.6' # Time-stamp: <2022-05-13T21:54:37Z>
+__version__ = '0.1.9' # Time-stamp: <2022-05-19T10:50:08Z>
 
 from sympy import Basic, Mul, Add, MatMul, MatAdd, Integer, \
   Identity, MatPow, Pow, Inverse
-
 
 def _MatMul_fixed_args_cnc (self, cset=False, warn=True, split_1=True):
   c = [x for x in self.args if x.is_commutative]
@@ -20,7 +19,58 @@ def _MatMul_fixed_args_cnc (self, cset=False, warn=True, split_1=True):
 def fix_MatMul_args_cnc ():
   MatMul.args_cnc = _MatMul_fixed_args_cnc
 
-  
+
+def _ExpectationMatrix_fixed_expand (self, **hints):
+  from sympy.stats import Expectation
+  from sympy.stats.rv import is_random
+  from sympy.core.function import expand as _expand
+  expr = self.args[0]
+  condition = self._condition
+  if not is_random(expr):
+      return expr
+
+  if isinstance(expr, Add):
+      return Add.fromiter(Expectation(a, condition=condition).expand()
+              for a in expr.args)
+
+  expand_expr = _expand(expr)
+  if isinstance(expand_expr, Add):
+      return Add.fromiter(Expectation(a, condition=condition).expand()
+              for a in expand_expr.args)
+
+  elif isinstance(expr, (Mul, MatMul)):
+      rv = []
+      nonrv = []
+      postnon = []
+
+      for a in expr.args:
+          if is_random(a):
+              if rv:
+                  rv.extend(postnon)
+              else:
+                  nonrv.extend(postnon)
+              postnon = []
+              rv.append(a)
+          elif a.is_Matrix:
+              postnon.append(a)
+          else:
+              nonrv.append(a)
+
+      # In order to avoid infinite-looping (MatMul may call .doit() again),
+      # do not rebuild
+      if len(nonrv) == 0 and len(postnon) == 0: # <- fixed
+          return self
+      return Mul.fromiter(nonrv)*Expectation(Mul.fromiter(rv),
+              condition=condition)*Mul.fromiter(postnon)
+
+  return self
+
+
+def fix_ExpectationMatrix_expand ():
+  from sympy.stats import ExpectationMatrix
+  ExpectationMatrix.expand = _ExpectationMatrix_fixed_expand
+
+
 def partial_apply (X, arg, applyf):
   repl = applyf(arg)
   return X.subs(arg, repl)
