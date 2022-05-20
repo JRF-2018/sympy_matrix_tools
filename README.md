@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-05-19T10:47:08Z" -->
+<!-- Time-stamp: "2022-05-20T02:01:48Z" -->
 
 Some tools for SymPy matrices.
 
@@ -69,7 +69,7 @@ To fix it...
 >>> Expectation(A * zeta).expand()
 A*ExpectationMatrix(zeta)
 >>> Expectation(zeta.T * A).expand()
-ExpectationMatrix(zeta.T)*A
+ExpectationMatrix(zeta).T*A
 >>> Expectation(epsilon * Identity(1)).expand()
 Expectation(epsilon)*I
 
