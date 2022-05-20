@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.10' # Time-stamp: <2022-05-20T02:00:04Z>
+__version__ = '0.1.11' # Time-stamp: <2022-05-20T09:27:51Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, MatMul, Rational, Identity
@@ -27,13 +27,20 @@ def test_fix_ExpectationMatrix_expand ():
     
     zeta = RandomMatrixSymbol("zeta", 2, 1)
     A = MatrixSymbol("A", 2, 2)
+
     assert \
         Expectation(zeta.T * A).expand() \
         == ExpectationMatrix(zeta.T * A)
+
     fix_ExpectationMatrix_expand()
+
     assert \
         Expectation(zeta.T * A).expand() \
         == ExpectationMatrix(zeta).T * A
+
+    assert \
+        Expectation(A ** 2).expand() \
+        == A ** 2
 
 
 def test_collect_1 ():

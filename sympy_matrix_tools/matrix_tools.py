@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.10' # Time-stamp: <2022-05-20T02:00:11Z>
+__version__ = '0.1.11' # Time-stamp: <2022-05-20T09:21:29Z>
 
 from sympy import Basic, Mul, Add, MatMul, MatAdd, Integer, \
   Identity, MatPow, Pow, Inverse, Transpose
@@ -66,8 +66,7 @@ def _ExpectationMatrix_fixed_expand (self, **hints):
 
       # In order to avoid infinite-looping (MatMul may call .doit() again),
       # do not rebuild
-      if len(nonrv) == 0 and \
-         (len(rv) == 0 or len(postnon) == 0):
+      if len(nonrv) == 0 and len(postnon) == 0:
           return self
       return Mul.fromiter(nonrv)*Expectation(Mul.fromiter(rv),
               condition=condition).expand()*Mul.fromiter(postnon)
