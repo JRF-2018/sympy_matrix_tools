@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.9' # Time-stamp: <2022-05-19T10:50:08Z>
+__version__ = '0.1.10' # Time-stamp: <2022-05-20T02:00:11Z>
 
 from sympy import Basic, Mul, Add, MatMul, MatAdd, Integer, \
-  Identity, MatPow, Pow, Inverse
+  Identity, MatPow, Pow, Inverse, Transpose
 
 def _MatMul_fixed_args_cnc (self, cset=False, warn=True, split_1=True):
   c = [x for x in self.args if x.is_commutative]
@@ -33,10 +33,18 @@ def _ExpectationMatrix_fixed_expand (self, **hints):
       return Add.fromiter(Expectation(a, condition=condition).expand()
               for a in expr.args)
 
+  elif isinstance(expr, Transpose):
+      return expr.func(Expectation(expr.args[0],
+                                   condition=condition).expand())
+
   expand_expr = _expand(expr)
   if isinstance(expand_expr, Add):
       return Add.fromiter(Expectation(a, condition=condition).expand()
               for a in expand_expr.args)
+
+  elif isinstance(expand_expr, Transpose):
+      return expand_expr.func(Expectation(expand_expr.args[0],
+                                          condition=condition).expand())
 
   elif isinstance(expr, (Mul, MatMul)):
       rv = []
@@ -58,10 +66,11 @@ def _ExpectationMatrix_fixed_expand (self, **hints):
 
       # In order to avoid infinite-looping (MatMul may call .doit() again),
       # do not rebuild
-      if len(nonrv) == 0 and len(postnon) == 0: # <- fixed
+      if len(nonrv) == 0 and \
+         (len(rv) == 0 or len(postnon) == 0):
           return self
       return Mul.fromiter(nonrv)*Expectation(Mul.fromiter(rv),
-              condition=condition)*Mul.fromiter(postnon)
+              condition=condition).expand()*Mul.fromiter(postnon)
 
   return self
 
