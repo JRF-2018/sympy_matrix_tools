@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.3' # Time-stamp: <2022-05-05T10:10:04Z>
+__version__ = '0.1.12' # Time-stamp: <2022-05-22T06:35:25Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, ZeroMatrix, Identity, Matrix, Dummy, Derivative, Subs, Lambda
@@ -100,3 +100,32 @@ def test_matrix_function_0 ():
     assert \
         Mf(N + 1, N + 1, M2).subs({N:2}).shape \
         == (3, 3)
+
+
+def test_freeze_matrix_function ():
+    A = MatrixSymbol("A", N, N)
+    x = MatrixFunction("x", N, 1)
+    t = Symbol("t", integer=True)
+
+    z = x(t).T * A  * x(t)
+    with pytest.raises(AttributeError, match=r"'Dummy' object has no attribute 'shape'"):
+        z.diff(x(t))
+
+    z2, sigma = freeze_matrix_function(z)
+    assert \
+        str(z2) \
+        == "x(t).T*A*x(t)"
+    assert \
+        str(sigma) \
+        == "{x(t): x(t)}"
+    assert \
+        str(atoms_list(z2, MatrixSymbol)) \
+        == "[x(t), A, x(t)]"
+
+    z3 = melt_matrix_function(z2.diff(sigma[x(t)]), sigma)
+    assert \
+        z3 \
+        == A*x(t) + A.T*x(t)
+    assert \
+        str(atoms_list(z3, MatrixSymbol)) \
+        == "[A, A]"

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.3' # Time-stamp: <2022-05-05T09:59:50Z>
+__version__ = '0.1.12' # Time-stamp: <2022-05-22T06:50:24Z>
 
-from sympy import Function, MatrixExpr, sympify
+from sympy import Function, MatrixExpr, sympify, MatrixSymbol
 from sympy.matrices.expressions.matexpr import MatrixElement, _LeftRightArgs
 from sympy.core.function import UndefinedFunction, Application
 
@@ -140,3 +140,21 @@ class UndefinedMatrixFunction(UndefinedFunction):
 
     def __ne__ (self, other):
         return not self == other
+
+
+def freeze_matrix_function (z, exclude=None):
+    if exclude is None:
+        exclude = set()
+    l = []
+    s = sorted(list(z.atoms(MatrixFunction)), key=lambda x: len(str(x)),
+               reverse=True)
+    for x in s:
+        if not (x.func in exclude or x in exclude):
+            l.append((x, MatrixSymbol(str(x), x.shape[0], x.shape[1])))
+    d = dict(l)
+    return z.subs(d), d
+
+
+def melt_matrix_function (z, sigma):
+    d = dict([(v, n) for n, v in sigma.items()])
+    return z.subs(d)

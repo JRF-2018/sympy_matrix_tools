@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-05-20T02:01:48Z" -->
+<!-- Time-stamp: "2022-05-22T06:34:37Z" -->
 
 Some tools for SymPy matrices.
 
@@ -207,6 +207,34 @@ AttributeError: 'Mul' object has no attribute 'shape'
 >>> # However, it may work in practice.
 >>> (Mf(2 * x1 + 1) + M1).diff(x1).subs(Mf, Lambda(x1, x1 * M1 + M2)).doit()
 2*M1
+
+```
+
+```python
+>>> A = MatrixSymbol("A", N, N)
+>>> x = MatrixFunction("x", N, 1)
+>>> t = Symbol("t", integer=True)
+
+>>> z = x(t).T * A * x(t)
+>>> atoms_list(z, MatrixSymbol)
+[A]
+>>> z.diff(x(t))
+Traceback (most recent call last):
+  ...
+AttributeError: 'Dummy' object has no attribute 'shape'
+
+>>> z2, sigma = freeze_matrix_function(z)
+>>> z2
+x(t).T*A*x(t)
+>>> sigma
+{x(t): x(t)}
+>>> atoms_list(z2, MatrixSymbol)
+[x(t), A, x(t)]
+>>> z3 = melt_matrix_function(z2.diff(sigma[x(t)]), sigma)
+>>> z3
+A*x(t) + A.T*x(t)
+>>> atoms_list(z3, MatrixSymbol)
+[A, A]
 
 ```
 
