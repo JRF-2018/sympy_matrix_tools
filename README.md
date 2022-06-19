@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-06-19T04:18:05Z" -->
+<!-- Time-stamp: "2022-06-19T07:39:24Z" -->
 
 Some tools for SymPy matrices.
 
@@ -265,7 +265,7 @@ A*x(t) + A.T*x(t)
 
 ```
 
-`atoms_list`, `nth_Sum`, `Sum_expand`, Sum_swap`, `Sum_collect`:
+`atoms_list`, `nth_Sum`, `Sum_expand`, `Sum_swap`, `Sum_collect`:
 
 ```python
 >>> z = Sum(g(m) + Sum(f(n, m), (n, 0, T)), (m, 0, tau)) + Sum(f(n, 0), (n, 0, tau))
@@ -372,7 +372,7 @@ False
 
 ```
 
-If you want something like above, you should use MatSum.
+If you want something like above, you should use `MatSum`.
 
 
 ## Usage of MatSum and MatProduct (**Experimental**)
@@ -398,7 +398,7 @@ Mf(0)*MatProduct(Mf(m), (m, 1, T))
 
 ## Usage of MatrixWild and MatrixDummy (**Experimental**)
 
-`MatrixWild`, `MatrixDummy`, 'WildMatrixFunction':
+`MatrixWild`, `MatrixDummy`, `WildMatrixFunction`:
 
 ```python
 >>> N = Symbol("N")
@@ -436,7 +436,7 @@ _ad + M1
 
 ```
 
-```
+```python
 >>> Apply(Q, 3) + 3
 3 + Apply(Q, 3)
 >>> MatApply(3, 3, Q, 3) + MQ
