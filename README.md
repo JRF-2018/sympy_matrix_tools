@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-05-22T06:34:37Z" -->
+<!-- Time-stamp: "2022-06-19T04:18:05Z" -->
 
 Some tools for SymPy matrices.
 
@@ -78,6 +78,8 @@ Expectation(epsilon)*I
 
 ## Usage of functions for matrices
 
+`mat_coeff`:
+
 ```python
 >>> from sympy_matrix_tools import *
 >>> z = (M1 + M2) * M1 + 2 * x1 * (x1 + 1) * M1 * M2 + M2 * (M1 ** 2) + 3 * M2 * M1
@@ -98,6 +100,8 @@ M2*M1
 
 ```
 
+`mat_collect`:
+
 ```python
 >>> z = M1 * M2 + (M2 + M1) * M1 + (M2 + M1) * (M1 ** 2) + (M2 + M1) * M2 + 3 * M1
 >>> mat_collect(z, M1)
@@ -106,6 +110,8 @@ M2*M1
 (M1 + M2)*M2 + ((M1 + M2)*M1 + 3*I + M1 + M2)*M1 + M1*M2
 
 ```
+
+`partial_apply`:
 
 ```python
 >> z
@@ -116,6 +122,8 @@ M2*M1
 M1**3 + M2*M1**2 + (M1 + M2)*M1 + (M1 + M2)*M2 + 3*M1 + M1*M2
 
 ```
+
+`mat_divide`:
 
 ```python
 >>> mat_divide(M1 * M2, M1)
@@ -133,7 +141,27 @@ M1
 
 ```
 
+`mat_trivial_divide`:
+
+```python
+>>> N2 = Symbol("N2", integer=True)
+>>> M3 = MatrixSymbol("M3", N, N2)
+>>> M4 = MatrixSymbol("M4", N2, N)
+>>> z = M1 + ((M3 * M4) ** -2) * M3 * M4
+>>> z
+(M3*M4)**(-2)*M3*M4 + M1
+>>> mat_trivial_divide(z)
+(M3*M4)**(-1) + M1
+>>> z = M1 + ((M3 * M4) ** -1) * M3 * M4
+>>> z
+(M3*M4)**(-1)*M3*M4 + M1
+>>> mat_trivial_divide(z)
+I + M1
+
+```
+
 Mixed Example:
+
 ```python
 >>> z = M1 * M2 + (x1 ** 2) * (M2 + M1) * M1 + x1 * (M2 + M1) * (M1 ** 2) + (M2 + M1) * M2 + 3 * M1
 >>> z2 = mat_collect(z, x1 * M1, expand_pow=True)
@@ -159,23 +187,6 @@ x1*((x1**N/x1)*M1**(N - 2) + I)*M1**2
 x1*((x1**N/x1)*M1**(N - 2) + I)*M1**2
 >>> mat_collect(z, x1 *  M1 ** 2, expand_pow={x1**N: 1, M1**N: 2})
 x1*(x1**(N - 1)*M1**(N - 2) + I)*M1**2
-
-```
-
-```python
->>> N2 = Symbol("N2", integer=True)
->>> M3 = MatrixSymbol("M3", N, N2)
->>> M4 = MatrixSymbol("M4", N2, N)
->>> z = M1 + ((M3 * M4) ** -2) * M3 * M4
->>> z
-(M3*M4)**(-2)*M3*M4 + M1
->>> mat_trivial_divide(z)
-(M3*M4)**(-1) + M1
->>> z = M1 + ((M3 * M4) ** -1) * M3 * M4
->>> z
-(M3*M4)**(-1)*M3*M4 + M1
->>> mat_trivial_divide(z)
-I + M1
 
 ```
 
@@ -209,6 +220,8 @@ AttributeError: 'Mul' object has no attribute 'shape'
 2*M1
 
 ```
+
+`freeze_matrix_function`, `melt_matrix_functioin`:
 
 ```python
 >>> A = MatrixSymbol("A", N, N)
@@ -252,6 +265,8 @@ A*x(t) + A.T*x(t)
 
 ```
 
+`atoms_list`, `nth_Sum`, `Sum_expand`, Sum_swap`, `Sum_collect`:
+
 ```python
 >>> z = Sum(g(m) + Sum(f(n, m), (n, 0, T)), (m, 0, tau)) + Sum(f(n, 0), (n, 0, tau))
 >>> atoms_list(z, Sum)
@@ -285,6 +300,8 @@ Sum(g(m), (m, 0, tau)) + Sum(f(n, m) + f(n, 2*m), (n, 0, T), (m, 0, tau))
 ```
 
 Partially expand symbolic series.
+
+`Sum_step_forward`, `Sum_step_backward`:
 
 ```python
 >>> z = Sum(f(n + 1), (n, 0, T))
@@ -321,6 +338,8 @@ Sum(f(m) + Sum(f(m + n), (n, 1, T)), (m, 0, tau))
 ```
 
 I intentionally omitted infinite checks, etc.
+
+`Sum_coeff_mul`:
 
 ```python
 >>> w = Function("w")
@@ -377,6 +396,133 @@ Mf(0)*MatProduct(Mf(m), (m, 1, T))
 ```
 
 
+## Usage of MatrixWild and MatrixDummy (**Experimental**)
+
+`MatrixWild`, `MatrixDummy`, 'WildMatrixFunction':
+
+```python
+>>> N = Symbol("N")
+>>> M1 = MatrixSymbol("M1", N, N)
+>>> M2 = MatrixSymbol("M2", N, N)
+
+```
+
+```python
+>>> aw = MatrixWild("aw", N, N)
+>>> aw + M1
+aw_ + M1
+>>> (M2 * M1).replace(aw * M1, aw * 2)
+2*M2
+>>> ad = MatrixDummy("ad", N, N)
+>>> ad + M1
+_ad + M1
+>>> from sympy.abc import x, y
+>>> awf = WildMatrixFunction("awf", N, N)
+>>> Mf = MatrixFunction("Mf", N, N)
+>>> Mf(x, y).match(awf)
+{awf_: Mf(x, y)}
+
+```
+
+
+## Usage of Apply and MatApply and PredApply (**Experimental**)
+
+```python
+>>> Q = Symbol("Q")
+>>> MQ = MatrixSymbol("MQ", 3, 3)
+>>> f = Function("f")
+>>> Mf = MatrixFunction("Mf", 3, 3)
+>>> b = Predicate("b")
+
+```
+
+```
+>>> Apply(Q, 3) + 3
+3 + Apply(Q, 3)
+>>> MatApply(3, 3, Q, 3) + MQ
+MatApply(3, 3, Q, 3) + MQ
+>>> And(PredApply(Q, 3), b(1))
+PredApply(Q, 3) & Q.b(1)
+>>> Apply(Q, 3).subs(Q, Lambda(Q, Q + 1))
+4
+>>> Apply(Q, 3).subs(Q, f)
+f(3)
+>>> MatApply(3, 3, Q, 3).subs(Q, Lambda(Q, Mf(Q)))
+Mf(3)
+>>> PredApply(Q, 3).subs(Q, Lambda(Q, b(Q)))
+Q.b(3)
+
+```
+
+
+## Usage of functions about unification and reasoning
+
+`apply_rewriterules`, `rewrite_subterm`, `rewriterules_from_eqs`, `resolve_mp`:
+
+```python
+>>> Q = Symbol("Q")
+>>> f = Function("f")
+>>> b = Predicate("b")
+>>> g = Function("g")
+>>> c = Predicate("c")
+>>> x = Symbol("x")
+
+```
+
+```python
+>>> rls = rewriterules_from_eqs([Eq(g(Q), f(Q)), Eq(Q * g(Q), g(Q * Q))],
+...                             variables=[Q])
+>>> apply_rewriterules(rls, g(x) + x * g(x))
+f(x) + g(x**2)
+>>> rewrite_subterm(g(x) + x * g(x), Q * g(Q), g(Q * Q), variables=[Q])
+g(x) + g(x**2)
+>>> resolve_mp(Implies(And(c(x), b(x), x < 3), Implies(b(x + 1), c(x + 2))),
+...            [b(1), c(1)], variables=[x])
+Implies(Q.b(2), Q.c(3))
+>>> resolve_mp(Implies(And(c(x), b(x), x < 3), Implies(b(x + 1), c(x + 2))),
+...            [b(1), c(1), b(2)], variables=[x])
+Q.c(3)
+
+```
+
+A possible terrible mistake, because `Q` is used as a pattern:
+
+```python
+>>> rls = rewriterules_from_eqs([Eq(Q * g(Q), g(Q * Q))],
+...                             variables=[Q])
+>>> apply_rewriterules(rls, 2 * g(Q))
+g(2**2)
+
+```
+
+Mixed Example:
+
+Let Sympy behave like Higher Order Logic. Each Lambda() must semantically be a set as function.
+
+```python
+>>> a = Symbol("a")
+>>> K = Symbol("K")
+>>> N = Symbol("N")
+>>> y = Symbol("y")
+>>> u = Symbol("u")
+>>> v = Symbol("v")
+
+```
+
+```python
+>>> LinearHomogeneous2 = Predicate("LinearHomogeneous2")
+>>> lhdef = Implies(LinearHomogeneous2(Q),
+...                 Eq(Apply(Q, a * K, a * N), a * Apply(Q, K, N)))
+>>> lhf = LinearHomogeneous2(Lambda((x, y), f(x, y)))
+>>> rls = rewriterules_from_eqs([resolve_mp(lhdef, [lhf], variables=[Q],
+...                                         complete=True)],
+...                             variables=[a, K, N])
+>>> apply_rewriterules(rls, f(3 * u, 3 * v))
+3*f(u, v)
+
+```
+
+
 ## Tests (for developers)
 
 ```sh
@@ -391,6 +537,8 @@ $ python -m doctest README.md -v
 The primary purpose of sympy_matrix_tools is for my personal use and experimental use. Of course, I would appreciate it if other people could use it, but since MatrixFunction etc. may appear at any time in the original SymPy, when using it, it may be better to specify the version of sympy_matrix_tools and SymPy. Or you can think it's enough to make a notebook like me and leave the output from time to time.
 
 Normally, I should write my hopes in SymPy's Issues and have them incorporated, but I can't speak English, I don't have much technical skills, and I can't handle it that much.
+
+If I am honored to have Sympy developers want to (partially) integrate these codes with the original Sympy, then feel free to do so.
 
 An actual usage example is on the following repository (in Japanese).
 

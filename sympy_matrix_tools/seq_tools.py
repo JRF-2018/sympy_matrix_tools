@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.8' # Time-stamp: <2022-05-15T11:51:16Z>
+__version__ = '0.2.0' # Time-stamp: <2022-06-19T01:27:37Z>
 
 import sympy
 from .matrix_tools import *
@@ -50,13 +50,13 @@ def Sum_Product_expand (z, expand_inner=True):
 
 def Sum_expand (z, expand_inner=True):
   for x in atoms_list(z, Sum):
-    z = z.subs(x, Sum_Product_expand(x, expand_inner=expand_inner))
+    z = z.xreplace({x: Sum_Product_expand(x, expand_inner=expand_inner)})
   return z
 
 
 def Product_expand (z, expand_inner=True):
   for x in atoms_list(z, Product):
-    z = z.subs(x, Sum_Product_expand(x, expand_inner=expand_inner))
+    z = z.xreplace({x: Sum_Product_expand(x, expand_inner=expand_inner)})
   return z
 
 
@@ -319,7 +319,7 @@ def Sum_step_forward (z, step=1, begin=None, end=None,
     raise ValueError("Illegal nth indexing.")
   y2 = Sum_Product_step(y, step=step, begin=begin, end=end,
                         minus=minus, where=where, forward=True)
-  return z.subs(y, y2)
+  return z.xreplace({y: y2})
 
 
 def Sum_step_backward (z, step=1, begin=None, end=None,
@@ -329,7 +329,7 @@ def Sum_step_backward (z, step=1, begin=None, end=None,
     raise ValueError("Illegal nth indexing.")
   y2 = Sum_Product_step(y, step=step, begin=begin, end=end,
                         minus=minus, where=where, forward=False)
-  return z.subs(y, y2)
+  return z.xreplace({y: y2})
 
 
 def Product_step_forward (z, step=1, begin=None, end=None,
@@ -339,7 +339,7 @@ def Product_step_forward (z, step=1, begin=None, end=None,
     raise ValueError("Illegal nth indexing.")
   y2 = Sum_Product_step(y, step=step, begin=begin, end=end,
                         minus=minus, where=where, forward=True)
-  return z.subs(y, y2)
+  return z.xreplace({y: y2})
 
 
 def Product_step_backward (z, step=1, begin=None, end=None,
@@ -349,7 +349,7 @@ def Product_step_backward (z, step=1, begin=None, end=None,
     raise ValueError("Illegal nth indexing.")
   y2 = Sum_Product_step(y, step=step, begin=begin, end=end,
                         minus=minus, where=where, forward=False)
-  return z.subs(y, y2)
+  return z.xreplace({y: y2})
 
 
 def _Sum_coeff_mul (z, x, right=True):
@@ -371,4 +371,4 @@ def Sum_coeff_mul (z, x, right=True, nth=0):
   if y is None:
     raise ValueError("Illegal nth indexing.")
   y2 = _Sum_coeff_mul(y, x, right=right)
-  return z.subs(y, y2)
+  return z.xreplace({y: y2})

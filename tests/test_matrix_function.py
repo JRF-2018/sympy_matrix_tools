@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.12' # Time-stamp: <2022-05-22T06:35:25Z>
+__version__ = '0.2.0' # Time-stamp: <2022-06-19T01:28:15Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, ZeroMatrix, Identity, Matrix, Dummy, Derivative, Subs, Lambda
@@ -70,36 +70,36 @@ def test_matrix_function ():
         == M3*Mf3(x3) + M3.T*Mf3(x3)
 
 
-def test_matrix_function_0 ():
-    Mf = MatrixFunction0("Mf")
+# def test_matrix_function_0 ():
+#     Mf = MatrixFunction0("Mf")
 
-    with pytest.raises(TypeError, match=r".*MatrixFunction needs.*"):
-        Mf(x1)
+#     with pytest.raises(TypeError, match=r".*MatrixFunction needs.*"):
+#         Mf(x1)
 
-    assert \
-        Mf(N + 1, N + 1, N) + M1 \
-        == Mf(N + 1, N + 1, N) + M1
-    assert \
-        Mf(N + 1, N + 1, 2 * N + 1, x1).subs(N, 2).subs({x1: 3}).as_explicit() \
-        == Matrix([[(Mf(3, 3, 5, 3))[0, 0], (Mf(3, 3, 5, 3))[0, 1], (Mf(3, 3, 5, 3))[0, 2]]
-, [(Mf(3, 3, 5, 3))[1, 0], (Mf(3, 3, 5, 3))[1, 1], (Mf(3, 3, 5, 3))[1, 2]], [(Mf
-(3, 3, 5, 3))[2, 0], (Mf(3, 3, 5, 3))[2, 1], (Mf(3, 3, 5, 3))[2, 2]]])
+#     assert \
+#         Mf(N + 1, N + 1, N) + M1 \
+#         == Mf(N + 1, N + 1, N) + M1
+#     assert \
+#         Mf(N + 1, N + 1, 2 * N + 1, x1).subs(N, 2).subs({x1: 3}).as_explicit() \
+#         == Matrix([[(Mf(3, 3, 5, 3))[0, 0], (Mf(3, 3, 5, 3))[0, 1], (Mf(3, 3, 5, 3))[0, 2]]
+# , [(Mf(3, 3, 5, 3))[1, 0], (Mf(3, 3, 5, 3))[1, 1], (Mf(3, 3, 5, 3))[1, 2]], [(Mf
+# (3, 3, 5, 3))[2, 0], (Mf(3, 3, 5, 3))[2, 1], (Mf(3, 3, 5, 3))[2, 2]]])
 
-    # # The following example doesn't work.
-    # _xi_3 = Dummy("_xi_3")
-    # assert \
-    #     (Mf(N + 1, N + 1, 2 * x1 + 1) + M1).diff(x1) \
-    #     == 2*Subs(Derivative(Mf(N + 1, N + 1, _xi_3), _xi_3), _xi_3, 2*x1 + 1) + 0
+#     # # The following example doesn't work.
+#     # _xi_3 = Dummy("_xi_3")
+#     # assert \
+#     #     (Mf(N + 1, N + 1, 2 * x1 + 1) + M1).diff(x1) \
+#     #     == 2*Subs(Derivative(Mf(N + 1, N + 1, _xi_3), _xi_3), _xi_3, 2*x1 + 1) + 0
 
-    assert \
-        (Mf(N + 1, N + 1, N) + M1).subs(Mf, Lambda((N, N2, x1), (x1 * M1 + M2).subs(N, 2))).subs(N, 2).doit() \
-        == (M1 + 2*M1 + M2).subs(N, 2)
-    assert \
-        (Mf(N + 1, N + 1, M2) + M1).subs(N, 2).subs(Mf, Lambda((N, N2, M2), (M1 + M2).subs(N, 2))).doit() \
-        == (2*M1 + M2).subs(N, 2)
-    assert \
-        Mf(N + 1, N + 1, M2).subs({N:2}).shape \
-        == (3, 3)
+#     assert \
+#         (Mf(N + 1, N + 1, N) + M1).subs(Mf, Lambda((N, N2, x1), (x1 * M1 + M2).subs(N, 2))).subs(N, 2).doit() \
+#         == (M1 + 2*M1 + M2).subs(N, 2)
+#     assert \
+#         (Mf(N + 1, N + 1, M2) + M1).subs(N, 2).subs(Mf, Lambda((N, N2, M2), (M1 + M2).subs(N, 2))).doit() \
+#         == (2*M1 + M2).subs(N, 2)
+#     assert \
+#         Mf(N + 1, N + 1, M2).subs({N:2}).shape \
+#         == (3, 3)
 
 
 def test_freeze_matrix_function ():

@@ -1,61 +1,61 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.12' # Time-stamp: <2022-05-22T06:50:24Z>
+__version__ = '0.2.0' # Time-stamp: <2022-06-19T07:23:23Z>
 
 from sympy import Function, MatrixExpr, sympify, MatrixSymbol
 from sympy.matrices.expressions.matexpr import MatrixElement, _LeftRightArgs
 from sympy.core.function import UndefinedFunction, Application
 
 
-class MatrixFunction0 (Function, MatrixExpr):
-    def __new__ (cls, *args, **options):
-        if cls is MatrixFunction0:
-            return UndefinedMatrixFunction0(*args, **options)
-        args = list(args)
-        if len(args) < 2:
-            raise TypeError("MatrixFunction needs rows and cols as arguments.")
-        n, m = args.pop(0), args.pop(0)
+# class MatrixFunction0 (Function, MatrixExpr):
+#     def __new__ (cls, *args, **options):
+#         if cls is MatrixFunction0:
+#             return UndefinedMatrixFunction0(*args, **options)
+#         args = list(args)
+#         if len(args) < 2:
+#             raise TypeError("MatrixFunction needs rows and cols as arguments.")
+#         n, m = args.pop(0), args.pop(0)
 
-        n, m = sympify(n), sympify(m)
+#         n, m = sympify(n), sympify(m)
 
-        cls._check_dim(m)
-        cls._check_dim(n)
+#         cls._check_dim(m)
+#         cls._check_dim(n)
 
-        obj = super().__new__(cls, n, m, *args, **options)
-        return obj
+#         obj = super().__new__(cls, n, m, *args, **options)
+#         return obj
 
-    @property
-    def shape (self):
-        return self.args[0], self.args[1]
+#     @property
+#     def shape (self):
+#         return self.args[0], self.args[1]
 
-    def _entry (self, i, j, **kwargs):
-        return MatrixElement(self, i, j)
-
-
-class AppliedMatrixUndef0 (MatrixFunction0):
-    is_number = False
-
-    def __new__ (cls, *args, **options):
-        args = list(map(sympify, args))
-        u = [a.name for a in args if isinstance(a, UndefinedFunction)
-             or isinstance(a, UndefinedMatrixFunction0)]
-        if u:
-            raise TypeError('Invalid argument: expecting an expression, not UndefinedFunction%s: %s' % (
-                's'*(len(u) > 1), ', '.join(u)))
-        obj = super().__new__(cls, *args, **options)
-        return obj
-
-    def _eval_as_leading_term (self, x, logx=None, cdir=0):
-        return self
-
-    @property
-    def _diff_wrt (self):
-        return True
+#     def _entry (self, i, j, **kwargs):
+#         return MatrixElement(self, i, j)
 
 
-class UndefinedMatrixFunction0(UndefinedFunction):
-    def __new__ (mcl, name, bases=(AppliedMatrixUndef0,), __dict__=None, **kwargs):
-        obj = super().__new__(mcl, name, bases, __dict__, **kwargs)
-        return obj
+# class AppliedMatrixUndef0 (MatrixFunction0):
+#     is_number = False
+
+#     def __new__ (cls, *args, **options):
+#         args = list(map(sympify, args))
+#         u = [a.name for a in args if isinstance(a, UndefinedFunction)
+#              or isinstance(a, UndefinedMatrixFunction0)]
+#         if u:
+#             raise TypeError('Invalid argument: expecting an expression, not UndefinedFunction%s: %s' % (
+#                 's'*(len(u) > 1), ', '.join(u)))
+#         obj = super().__new__(cls, *args, **options)
+#         return obj
+
+#     def _eval_as_leading_term (self, x, logx=None, cdir=0):
+#         return self
+
+#     @property
+#     def _diff_wrt (self):
+#         return True
+
+
+# class UndefinedMatrixFunction0(UndefinedFunction):
+#     def __new__ (mcl, name, bases=(AppliedMatrixUndef0,), __dict__=None, **kwargs):
+#         obj = super().__new__(mcl, name, bases, __dict__, **kwargs)
+#         return obj
 
 
 class MatrixFunction (Function, MatrixExpr):
@@ -132,7 +132,8 @@ class UndefinedMatrixFunction(UndefinedFunction):
     _kwargs = {}  # type: tDict[str, Optional[bool]]
 
     def __hash__ (self):
-        return hash((self.class_key(), frozenset(self._kwargs.items())))
+        return hash((self.class_key(), frozenset(self._kwargs.items()),
+                     ('shape', self.shape)))
 
     def __eq__ (self, other):
         return super().__eq__(other) and \

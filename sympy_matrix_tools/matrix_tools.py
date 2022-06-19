@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.11' # Time-stamp: <2022-05-20T09:21:29Z>
+__version__ = '0.2.0' # Time-stamp: <2022-06-19T01:27:29Z>
 
 from sympy import Basic, Mul, Add, MatMul, MatAdd, Integer, \
   Identity, MatPow, Pow, Inverse, Transpose
@@ -355,6 +355,5 @@ def mat_trivial_divide (X):
                     Q = [Y.args[0]]
                 d[MatMul(*Q, Y)] = Y.args[0] ** (Y.args[1] + 1)
                 d[MatMul(Y, *Q)] = Y.args[0] ** (Y.args[1] + 1)
-    for n, v in d.items():
-        X = X.subs(n, v)
+    X = X.subs(d)
     return X
