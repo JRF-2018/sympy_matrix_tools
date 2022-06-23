@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.0' # Time-stamp: <2022-06-19T07:23:23Z>
+__version__ = '0.2.1' # Time-stamp: <2022-06-23T15:07:45Z>
 
 from sympy import Function, MatrixExpr, sympify, MatrixSymbol
 from sympy.matrices.expressions.matexpr import MatrixElement, _LeftRightArgs
@@ -65,6 +65,75 @@ class MatrixFunction (Function, MatrixExpr):
         obj = super().__new__(cls, *args, **options)
         return obj
 
+    @property
+    def free_symbols (self):
+        return super().free_symbols \
+            | self.shape[0].free_symbols \
+            | self.shape[1].free_symbols
+
+    def _eval_subs (self, old, new):
+        n, m = self.shape
+        n_new = n._subs(old, new)
+        m_new = m._subs(old, new)
+        modified = False
+        if n != n_new or m != m_new:
+            modified = True
+            n = n_new or n
+            m = m_new or m
+            u = UndefinedMatrixFunction(self.name, m_new, n_new)
+            c = u(*[i._subs(old, new) for i in self.args])
+        else:
+            c = self
+        if old == self.func:
+            old = c.func
+        res = super(MatrixFunction, c)._eval_subs(old, new)
+        if res is not None:
+            return res
+        elif modified:
+            return c
+
+    def _xreplace(self, rule):
+        n, m = self.shape
+        n_new, n_changed = n._xreplace(rule)
+        m_new, m_changed = m._xreplace(rule)
+        modified = False
+        if n_changed or m_changed:
+            modified = True
+            n = n_new or n
+            m = m_new or m
+            u = UndefinedMatrixFunction(self.name, m_new, n_new)
+            c = u(*[i._xreplace(rule)[0] for i in self.args])
+        else:
+            c = self
+        r, r_changed = super(MatrixFunction, c)._xreplace(rule)
+        return r, r_changed or modified
+
+    def matches (self, expr, repl_dict=None, old=False):
+        if self.is_Matrix and not expr.is_Matrix:
+            return None
+        
+        if repl_dict is None:
+            repl_dict = dict()
+        else:
+            repl_dict = repl_dict.copy()
+
+        d = repl_dict
+        for arg, other_arg in zip(self.shape, expr.shape):
+            if arg == other_arg:
+                continue
+            if arg.is_Relational:
+                try:
+                    d = arg.xreplace(d).matches(other_arg, d, old=old)
+                except TypeError:
+                    d = None
+            else:
+                d = arg.xreplace(d).matches(other_arg, d, old=old)
+            if d is None:
+                return None
+
+        return super(MatrixFunction, self.xreplace(d))\
+            .matches(expr, d, old=old)
+
 
 class AppliedMatrixUndef (MatrixFunction):
     is_number = False
@@ -89,33 +158,6 @@ class AppliedMatrixUndef (MatrixFunction):
 
     def _entry (self, i, j, **kwargs):
         return MatrixElement(self, i, j)
-
-    @property
-    def free_symbols (self):
-        return super().free_symbols \
-            | self.shape[0].free_symbols \
-            | self.shape[1].free_symbols
-
-    def _eval_subs (self, old, new):
-        n, m = self.shape
-        n_new = n._subs(old, new)
-        m_new = m._subs(old, new)
-        modified = False
-        if n != n_new or m != m_new:
-            modified = True
-            n = n_new or n
-            m = m_new or m
-            u = UndefinedMatrixFunction(self.name, m_new, n_new)
-            c = u(*[i._subs(old, new) for i in self.args])
-        else:
-            c = self
-        if old == self.func:
-            old = c.func
-        res = super(AppliedMatrixUndef, c)._eval_subs(old, new)
-        if res is not None:
-            return res
-        elif modified:
-            return c
 
 
 class UndefinedMatrixFunction(UndefinedFunction):

@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.0' # Time-stamp: <2022-06-19T07:28:37Z>
+__version__ = '0.2.1' # Time-stamp: <2022-06-23T12:48:16Z>
 
 import pytest
-from sympy import MatrixSymbol, Symbol, Function, Predicate, Lambda, And, Implies
+from sympy import MatrixSymbol, Symbol, Function, Predicate, \
+    Lambda, And, Implies
 from sympy_matrix_tools import *
+
 
 N = Symbol("N")
 M1 = MatrixSymbol("M1", N, N)
 M2 = MatrixSymbol("M2", N, N)
+
 
 def test_matrix_wild ():
     #fix_AssocOp__matches_commutative()
@@ -157,3 +160,48 @@ def test_mixed_1 ():
     assert \
         rewrite_subterm(M1 + M2 * Mf(M2), Q * Mf(Q), Mg(2 * Q), variables=[Q]) \
         == Mg(2 * M2) + M1
+
+
+def test_matches ():
+    a = Wild("a")
+    M1 = MatrixDummy("M1", a, a, 1)
+    M1b = MatrixDummy("M1", 3, 3, 1)
+    assert \
+        str(M1.matches(M1b)) \
+        == "{a_: 3}"
+
+    M1 = MatrixWild("M1", a, a)
+    M1b = MatrixWild("M1", 3, 3)
+    assert \
+        str(M1.matches(M1b)) \
+        == "{a_: 3, M1_: M1_}"
+
+
+def test_xreplace ():
+    a = Wild("a")
+    A = MatrixWild("A", a, a)
+    assert \
+        A.xreplace({a: 3}).shape \
+        == (3, 3)
+    D = MatrixDummy("D", a, a)
+    assert \
+        D.xreplace({a: 3}).shape \
+        == (3, 3)
+
+
+def test_as_dummy ():
+    fix_Basic_MatrixSymbol_about_dummy()
+    N = Symbol("N")
+    x = MatrixSymbol("x", N, N)
+    y = MatrixSymbol("y", N, N)
+    f = MatrixFunction("f", N, N)
+    g = MatrixFunction("g", N, N)
+    q = Lambda(x, y + f(x) + x)
+
+    assert \
+        str(q.as_dummy().doit(deep=True)) \
+        == "Lambda(_0, f(_0) + _0 + y)"
+
+    assert \
+        str(x.as_dummy()) \
+        == "_x"

@@ -1,14 +1,23 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-06-19T07:39:24Z" -->
+<!-- Time-stamp: "2022-06-23T13:07:27Z" -->
 
 Some tools for SymPy matrices.
 
 ## Download in Google Colab
 
+You need SymPy >= 1.10.1. With Google Colab, you should download SymPy >= 1.10.1:
+
+```python
+!pip install "sympy>=1.10.1"
+```
+
+and then:
+
 ``` python
 !pip install git+https://github.com/JRF-2018/sympy_matrix_tools
 ```
+
 
 ## Fix coeff
 
@@ -37,6 +46,7 @@ To fix it...
 2*I + 2*M2
 
 ```
+
 
 ## Fix ExpectationMatrix.expand
 
@@ -72,6 +82,32 @@ A*ExpectationMatrix(zeta)
 ExpectationMatrix(zeta).T*A
 >>> Expectation(epsilon * Identity(1)).expand()
 Expectation(epsilon)*I
+
+```
+
+
+## Fix Basic and MatrixSymbol about dummy symbols
+
+If you use logical tools of this package, you should fix Basic and
+MatrixSymbol about dummy symbols.
+
+The original SymPy errs like below:
+
+```python
+>>> Lambda(M1, M1 + Identity(N)).as_dummy().doit()
+Traceback (most recent call last):
+  ...
+AttributeError: 'Symbol' object has no attribute 'as_coeff_mmul'
+
+````
+
+To fix it...
+
+```python
+>>> import sympy_matrix_tools
+>>> sympy_matrix_tools.fix_Basic_MatrixSymbol_about_dummy()
+>>> Lambda(M1, M1 + Identity(N)).as_dummy().doit()
+Lambda(_0, I + _0)
 
 ```
 

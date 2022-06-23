@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.0' # Time-stamp: <2022-06-19T01:28:15Z>
+__version__ = '0.2.1' # Time-stamp: <2022-06-22T19:08:35Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, ZeroMatrix, Identity, Matrix, Dummy, Derivative, Subs, Lambda
@@ -129,3 +129,13 @@ def test_freeze_matrix_function ():
     assert \
         str(atoms_list(z3, MatrixSymbol)) \
         == "[A, A]"
+
+
+def test_wild_shape ():
+    a = Wild("a")
+    x = Symbol("x")
+    Mf = MatrixFunction("Mf", a, a)
+    Mfb = MatrixFunction("Mf", N, N)
+    assert \
+        str(Mf(x).matches(Mfb(x))) \
+        == "{a_: N}"

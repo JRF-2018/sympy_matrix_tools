@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.0' # Time-stamp: <2022-06-19T01:28:07Z>
+__version__ = '0.2.1' # Time-stamp: <2022-06-23T15:07:24Z>
 
 import pytest
-from sympy import MatrixSymbol, Symbol, Function, Predicate, Lambda, And, latex
+from sympy import MatrixSymbol, Symbol, Function, Predicate, Lambda, \
+    And, latex, Wild
 from sympy_matrix_tools import *
 
 Q = Symbol("Q")
@@ -45,3 +46,25 @@ def test_apply ():
     assert \
         PredApply(Q, 3).subs(Q, b) \
         == b(3)
+
+
+def test_matches ():
+    Q = Wild("Q")
+    a = Wild("a")
+    x = Symbol("x")
+    N = Symbol("N")
+    f = Function("f")
+    g = Function("g")
+    Mf = MatrixFunction("Mf", N, N)
+
+    assert \
+        str(Apply(Q, f(x), x).matches(f(x))) \
+        == "{Q_: Lambda((_x, _x), _x)}"
+
+    assert \
+        str(Apply(Q, f(x)).matches(Apply(Q, g(f(x))))) \
+        == "{Q_: Lambda(_x, Apply(Q_, g(_x)))}"
+
+    assert \
+        str(MatApply(a, a, Q, Mf(x), x).matches(Mf(x))) \
+        == "{Q_: Lambda((_X, _x), _X), a_: N}"
