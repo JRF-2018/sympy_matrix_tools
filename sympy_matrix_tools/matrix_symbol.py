@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.1' # Time-stamp: <2022-06-23T12:40:36Z>
+__version__ = '0.2.2' # Time-stamp: <2022-06-24T11:49:41Z>
 
 from sympy import MatrixSymbol, Wild, Dummy, sympify, \
     MatrixExpr, WildFunction, Symbol
 from sympy.core.basic import Basic, Atom
-from sympy.core.cache import cacheit
-from sympy.core.symbol import Str
 from sympy.core.operations import AssocOp
+from sympy.core.assumptions import StdFactKB
 from sympy.matrices.matrices import MatrixKind
 from sympy.printing.str import StrPrinter
 from sympy.printing.repr import ReprPrinter
@@ -15,7 +14,7 @@ from .matrix_function import MatrixFunction, AppliedMatrixUndef
 
 def _new_Basic_dummy_eq (self, other, symbol=None):
     s = self.as_dummy()
-    o = _sympify(other)
+    o = sympify(other) # changed
     o = o.as_dummy()
 
     dummy_symbols = [i for i in s.free_symbols if i.is_Dummy]
@@ -33,7 +32,7 @@ def _new_Basic_dummy_eq (self, other, symbol=None):
         else:
             return s == o
 
-    tmp = dummy.as_dummy()
+    tmp = dummy.as_dummy() # changed
 
     return s.xreplace({dummy: tmp}) == o.xreplace({symbol: tmp})
 
@@ -42,20 +41,20 @@ def _new_Basic_as_dummy (self):
         # mask free that shadow bound
         free = x.free_symbols
         bound = set(x.bound_symbols)
-        d = {i: i.as_dummy() for i in bound & free}
+        d = {i: i.as_dummy() for i in bound & free} # changed
         x = x.subs(d)
         # replace bound with canonical names
         x = x.xreplace(x.canonical_variables)
         # return after undoing masking
         return x.xreplace({v: k for k, v in d.items()})
-    if not self.has(Symbol):
+    if not self.has(Symbol) and not self.has(MatrixSymbol): # changed
         return self
     return self.replace(
         lambda x: hasattr(x, 'bound_symbols'),
         can,
         simultaneous=False)
 
-def numbered_name(prefix='x', start=0, exclude=()):
+def numbered_name (prefix='x', start=0, exclude=()):
     exclude = set(exclude or [])
     while True:
         name = '%s%s' % (prefix, start)
@@ -66,17 +65,14 @@ def numbered_name(prefix='x', start=0, exclude=()):
 def _new_Basic_canonical_variables (self):
     if not hasattr(self, 'bound_symbols'):
         return {}
-    dums = numbered_name('_')
-    reps = {}
     bound = self.bound_symbols
     names = {i.name for i in self.free_symbols - set(bound)}
+    dums = numbered_name('_', exclude=names)
+    reps = {}
     for b in bound:
         dn = next(dums)
-        if b.is_Symbol:
-            while dn in names:
-                dn = next(dums)
-        if b.is_Matrix:
-            d = MatrixSymbol(dn, *b.shape)
+        if hasattr(b, 'as_symbol'):
+            d = b.as_symbol(dn)
         else:
             d = Symbol(dn)
         reps[b] = d
@@ -85,11 +81,15 @@ def _new_Basic_canonical_variables (self):
 def _new_MatrixSymbol_as_dummy (self):
     return MatrixDummy(self.name, *self.shape)
 
+def _new_MatrixSymbol_as_symbol (self, name):
+    return MatrixSymbol(name, *self.shape)
+
 def fix_Basic_MatrixSymbol_about_dummy ():
     Basic.dummy_eq = _new_Basic_dummy_eq
     Basic.as_dummy = _new_Basic_as_dummy
     Basic.canonical_variables = property(_new_Basic_canonical_variables)
     MatrixSymbol.as_dummy = _new_MatrixSymbol_as_dummy
+    MatrixSymbol.as_symbol = _new_MatrixSymbol_as_symbol
 
 
 ## fix_AssocOp__matches_commutative was needed for MatrixWild.  However, it seems not to be needed now.
@@ -114,40 +114,48 @@ class MatrixDummy (Dummy, MatrixSymbol):
     kind: MatrixKind = MatrixKind()
 
     def __new__ (cls, name=None, n=None, m=None, dummy_index=None, **assumptions):
-        n, m = sympify(n), sympify(m)
-        MatrixExpr._check_dim(n)
-        MatrixExpr._check_dim(m)
-        obj = Dummy.__new__(cls, name=str(name), dummy_index=dummy_index, **assumptions)
-        obj._shape = (n, m)
+        if dummy_index is not None:
+            assert name is not None, "If you specify a dummy_index, you must also provide a name"
+
+        if name is None:
+            name = "Dummy_" + str(Dummy._count)
+
+        if dummy_index is None:
+            dummy_index = Dummy._base_dummy_index + Dummy._count
+            Dummy._count += 1
+
+        cls._sanitize(assumptions, cls)
+        obj = MatrixSymbol.__new__(cls, name, n, m)
+        obj.dummy_index = dummy_index
+
+        tmp_asm_copy = assumptions.copy()
+        obj._assumptions = StdFactKB(assumptions)
+        obj._assumptions._generator = tmp_asm_copy
+
         return obj
-
-    @property
-    def shape (self):
-        return self._shape
-
-    @property
-    def name (self):
-        return self._name
-
-    @name.setter
-    def name (self, c):
-        self._name = c
     
+    def __getnewargs_ex__(self):
+        return ((self.name, *self.shape, self.dummy_index), self.assumptions0)
+
+    @property
+    def name(self):
+        return self.args[0].name
+
     @property
     def args (self):
-        return (sympify(self.name), *self.shape,
-                sympify(self.dummy_index))
+        return super().args + (sympify(self.dummy_index),)
 
-    def matches(self, expr, repl_dict=None, old=False):
-        return super(MatrixSymbol, self)\
-            .matches(expr, repl_dict=repl_dict, old=old)
+    def matches (self, expr, repl_dict=None, old=False):
+        return Basic\
+            .matches(self, expr, repl_dict=repl_dict, old=old)
 
     def xreplace (self, rule):
         return super(Atom, self).xreplace(rule)
 
     def _hashable_content (self):
-        return super()._hashable_content() \
-            + self.shape
+        return MatrixSymbol._hashable_content(self) \
+            + (self.dummy_index,) \
+            + tuple(sorted(self.assumptions0.items()))
 
     def as_dummy (self):
         return MatrixDummy(self.name, *self.shape)
@@ -158,83 +166,32 @@ class MatrixWild (Wild, MatrixSymbol):
     is_commutative = False
     kind: MatrixKind = MatrixKind()
 
-    def __new__ (cls, name, n, m, exclude=(), properties=(), **assumptions):
-        n, m = sympify(n), sympify(m)
-        MatrixExpr._check_dim(n)
-        MatrixExpr._check_dim(m)
-        exclude = tuple([sympify(x) for x in exclude])
-        properties = tuple(properties)
-        cls._sanitize(assumptions, cls)
-        obj = MatrixWild.__xnew__(cls, str(name), n, m, exclude=exclude,
-                                  properties=properties, **assumptions)
-        return obj
-    
-    @staticmethod
-    @cacheit
-    def __xnew__(cls, name, n, m, exclude, properties, **assumptions):
-        obj = Symbol.__xnew__(cls, name, **assumptions)
-        obj.exclude = exclude
-        obj.properties = properties
-        obj._shape = (n, m)
+    def __new__(cls, name, n, m, exclude=(), properties=(), **assumptions):
+        obj = MatrixSymbol.__new__(cls, name, n, m)
+        obj.exclude = tuple([_sympify(x) for x in exclude])
+        obj.properties = tuple(properties)
+
+        tmp_asm_copy = assumptions.copy()
+        obj._assumptions = StdFactKB(assumptions)
+        obj._assumptions._generator = tmp_asm_copy
+        
         return obj
 
-    @property
-    def shape (self):
-        return self._shape
+    def __getnewargs_ex__(self):
+        return ((self.name, *self.shape, self.exclude, self.properties),
+                self.assumptions0)
 
     @property
-    def name (self):
-        return self._name
-
-    @name.setter
-    def name (self, c):
-        self._name = c
-    
-    @property
-    def args (self):
-        return (sympify(self.name), *self.shape)
+    def name(self):
+        return self.args[0].name
 
     def _hashable_content (self):
-        return super()._hashable_content() \
-            + self.shape
-
-    def _eval_subs (self, old, new):
-        n, m = self.shape
-        n_new = n._subs(old, new)
-        m_new = m._subs(old, new)
-        modified = False
-        c = self
-        if n != n_new or m != m_new:
-            modified = True
-            n = n_new or n
-            m = m_new or m
-            c = self.func(c.name, n, m,
-                          exclude=c.exclude, properties=c.properties,
-                          **c.assumptions0)
-        res = super(MatrixWild, c)._eval_subs(old, new)
-        if res is not None:
-            return res
-        elif modified:
-            return c
+        return MatrixSymbol._hashable_content(self) \
+            + (self.exclude, self.properties) \
+            + tuple(sorted(self.assumptions0.items()))
 
     def xreplace (self, rule):
         return super(Atom, self).xreplace(rule)
-
-    def _xreplace(self, rule):
-        n, m = self.shape
-        n_new, n_changed = n._xreplace(rule)
-        m_new, m_changed = m._xreplace(rule)
-        modified = False
-        c = self
-        if n_changed or m_changed:
-            modified = True
-            n = n_new or n
-            m = m_new or m
-            c = self.func(c.name, n, m,
-                          exclude=c.exclude, properties=c.properties,
-                          **c.assumptions0)
-        r, r_changed = super(MatrixWild, c)._xreplace(rule)
-        return r, r_changed or modified
 
     def matches (self, expr, repl_dict=None, old=False):
         if self.is_Matrix and not expr.is_Matrix:
@@ -270,7 +227,7 @@ class MatrixWild (Wild, MatrixSymbol):
         return MatrixDummy(self.name, *self.shape)
 
 
-class WildMatrixFunction(WildFunction, MatrixFunction):  # type: ignore
+class WildMatrixFunction (WildFunction, MatrixFunction):  # type: ignore
     def __init__ (cls, name, n, m, **assumptions):
         WildFunction.__init__(cls, name, **assumptions)
         MatrixFunction.__init__(cls)
