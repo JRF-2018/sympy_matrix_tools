@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.1' # Time-stamp: <2022-06-23T15:07:45Z>
+__version__ = '0.2.3' # Time-stamp: <2022-06-28T15:17:16Z>
 
-from sympy import Function, MatrixExpr, sympify, MatrixSymbol
+from sympy import Function, MatrixExpr, sympify, MatrixSymbol, Expr
 from sympy.matrices.expressions.matexpr import MatrixElement, _LeftRightArgs
-from sympy.core.function import UndefinedFunction, Application
-
+from sympy.core.function import UndefinedFunction, Application, AppliedUndef
+from packaging.version import parse as parse_version
 
 # class MatrixFunction0 (Function, MatrixExpr):
 #     def __new__ (cls, *args, **options):
@@ -135,7 +135,7 @@ class MatrixFunction (Function, MatrixExpr):
             .matches(expr, d, old=old)
 
 
-class AppliedMatrixUndef (MatrixFunction):
+class AppliedMatrixUndef (MatrixFunction, AppliedUndef):
     is_number = False
 
     def __new__ (cls, *args, **options):
@@ -183,6 +183,76 @@ class UndefinedMatrixFunction(UndefinedFunction):
 
     def __ne__ (self, other):
         return not self == other
+
+
+try:
+    from sympy.tensor.array.expressions.arrayexpr_derivatives \
+        import array_derive
+
+    @array_derive.register(MatrixFunction)
+    def _(expr: MatrixFunction, x: Expr):
+        raise NotImplementedError()
+
+    # from sympy import Subs
+    # from sympy.core.function import ArgumentIndexError
+    # from sympy.tensor.array.array_derivatives \
+    #     import ArrayDerivative
+    # from sympy.tensor.array.expressions.array_expressions import (
+    #     get_rank, _array_tensor_product, _array_diagonal, _array_add,
+    #     _array_contraction, _permute_dims, _ArrayExpr)
+    # from .matrix_symbol import make_dummy
+
+    # class ArraySubs (Subs, _ArrayExpr):
+    #     shape = property(lambda self: self.args[0].shape)
+    #     # @property
+    #     # def shape (self):
+    #     #     return (self.args[0].shape[-2], self.args[0].shape[-1])
+
+    # # xxx = [(0, 4), (1, 3)]
+    # xxx = [(2, 4), (1, 3)]
+
+    # @array_derive.register(AppliedMatrixUndef)
+    # def _(expr: AppliedMatrixUndef, x: Expr):
+    #     def fdiff (self, argindex=1):
+    #         if not (1 <= argindex <= len(self.args)):
+    #             raise ArgumentIndexError(self, argindex)
+    #         ix = argindex - 1
+    #         A = self.args[ix]
+    #         D = make_dummy(A, 'xi_%i' % argindex, dummy_index=hash(A))
+    #         args = self.args[:ix] + (D,) + self.args[ix + 1:]
+    #         return ArraySubs(ArrayDerivative(self.func(*args), D,
+    #                                          evaluate=False), D, A)
+
+    #     # I don't know correct algorithm and am trying plausible one.
+    #     i = 0
+    #     l = []
+    #     b = get_rank(x)
+    #     c = get_rank(expr)
+    #     for a in expr.args:
+    #         i += 1
+    #         da = array_derive(a, x)
+    #         if da.is_zero:
+    #             continue
+    #         try:
+    #             df = fdiff(expr, i)
+    #         except ArgumentIndexError:
+    #             df = Function.fdiff(self, i)
+    #         # da = _array_diagonal(da, *[(i, b + i) for i in range(b)])
+    #         df = _array_diagonal(df, *[(i, c + i) for i in range(c)])
+    #         tp = _array_tensor_product(da, df)
+    #         # tp = _array_contraction(tp, *xxx)
+    #         # tp = _array_diagonal(tp, *[(b + i, b + c + i) for i in range(c)])
+    #         tp = _array_diagonal(tp, *[(i, b + i) for i in range(b)])
+    #         l.append(tp)
+    #     # print(tp.shape, get_rank(tp))
+    #     tp = _array_add(*l)
+    #     # diag_indices = [(i, b + i, b + c + i) for i in range(b + c)]
+    #     # tp = _array_diagonal(tp, *diag_indices)
+    #     # print(tp.shape, get_rank(tp))
+    #     return tp
+
+except ImportError:
+    pass
 
 
 def freeze_matrix_function (z, exclude=None):

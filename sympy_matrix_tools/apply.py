@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.1' # Time-stamp: <2022-06-22T17:20:42Z>
+__version__ = '0.2.3' # Time-stamp: <2022-06-24T23:02:40Z>
 
 from sympy import Expr, MatrixExpr, AppliedPredicate, Lambda,\
     sympify, Wild, Dummy
@@ -7,13 +7,7 @@ from sympy.logic.boolalg import Boolean
 from sympy.printing.str import StrPrinter
 from sympy.printing.repr import ReprPrinter
 from sympy.printing.latex import LatexPrinter, latex_escape
-from .matrix_symbol import MatrixDummy
-
-
-def make_dummy (expr):
-    if expr.is_Matrix:
-        return MatrixDummy("X", *expr.shape)
-    return Dummy("x")
+from .matrix_symbol import MatrixDummy, make_dummy
 
 
 class Apply (Expr):

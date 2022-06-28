@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.1' # Time-stamp: <2022-06-23T15:07:24Z>
+__version__ = '0.2.3' # Time-stamp: <2022-06-25T07:25:18Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, Function, Predicate, Lambda, \
@@ -67,4 +67,4 @@ def test_matches ():
 
     assert \
         str(MatApply(a, a, Q, Mf(x), x).matches(Mf(x))) \
-        == "{Q_: Lambda((_X, _x), _X), a_: N}"
+        == "{Q_: Lambda((_x, _x), _x), a_: N}"

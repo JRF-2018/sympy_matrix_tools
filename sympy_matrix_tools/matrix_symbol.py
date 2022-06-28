@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.2' # Time-stamp: <2022-06-24T11:49:41Z>
+__version__ = '0.2.3' # Time-stamp: <2022-06-24T23:31:21Z>
 
 from sympy import MatrixSymbol, Wild, Dummy, sympify, \
     MatrixExpr, WildFunction, Symbol
@@ -108,6 +108,12 @@ def fix_AssocOp__matches_commutative ():
     AssocOp._matches_commutative = _new_AssocOp__matches_commutative
 
 
+def make_dummy (expr, name="x", dummy_index=None):
+    if expr.is_Matrix:
+        return MatrixDummy(name, *expr.shape, dummy_index)
+    return Dummy(name)
+
+
 class MatrixDummy (Dummy, MatrixSymbol):
     is_Dummy = True
     is_commutative = False
@@ -171,6 +177,7 @@ class MatrixWild (Wild, MatrixSymbol):
         obj.exclude = tuple([_sympify(x) for x in exclude])
         obj.properties = tuple(properties)
 
+        cls._sanitize(assumptions, cls)
         tmp_asm_copy = assumptions.copy()
         obj._assumptions = StdFactKB(assumptions)
         obj._assumptions._generator = tmp_asm_copy

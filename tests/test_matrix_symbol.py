@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.1' # Time-stamp: <2022-06-23T12:48:16Z>
+__version__ = '0.2.3' # Time-stamp: <2022-06-24T14:07:28Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, Function, Predicate, \
@@ -91,23 +91,23 @@ def test_wild_matrix_function ():
         == None
 
     assert \
-        str(awf.match(awf)) \
-        == "{awf_: awf_}"
+        awf.match(awf) \
+        == {awf: awf}
     
     with pytest.raises(TypeError, match=r".*match*"):
         Mf.match(awf)
 
     assert \
-        str(awf.match(awf)) \
-        == "{awf_: awf_}"
+        awf.match(awf) \
+        == {awf: awf}
 
     assert \
-        str(Mf(x).match(awf)) \
-        == "{awf_: Mf(x)}"
+        Mf(x).match(awf) \
+        == {awf: Mf(x)}
 
     assert \
-        str(Mf(x, y).match(awf)) \
-        == "{awf_: Mf(x, y)}"
+        Mf(x, y).match(awf) \
+        == {awf: Mf(x, y)}
 
     awf = WildMatrixFunction('awf', N, N, nargs=2)
 
@@ -119,8 +119,8 @@ def test_wild_matrix_function ():
         == None
 
     assert \
-        str(Mf(x, y).match(awf)) \
-        == "{awf_: Mf(x, y)}"
+        Mf(x, y).match(awf) \
+        == {awf: Mf(x, y)}
 
     awf = WildMatrixFunction('awf', N, N, nargs=(1, 2))
 
@@ -128,12 +128,12 @@ def test_wild_matrix_function ():
         awf.nargs == {1, 2}
 
     assert \
-        str(Mf(x).match(awf)) \
-        == "{awf_: Mf(x)}"
+        Mf(x).match(awf) \
+        == {awf: Mf(x)}
 
     assert \
-        str(Mf(x, y).match(awf)) \
-        == "{awf_: Mf(x, y)}"
+        Mf(x, y).match(awf) \
+        == {awf: Mf(x, y)}
 
     assert \
         Mf(x, y, 1).match(awf) \
@@ -167,14 +167,14 @@ def test_matches ():
     M1 = MatrixDummy("M1", a, a, 1)
     M1b = MatrixDummy("M1", 3, 3, 1)
     assert \
-        str(M1.matches(M1b)) \
-        == "{a_: 3}"
+        M1.matches(M1b) \
+        == {a: 3}
 
     M1 = MatrixWild("M1", a, a)
     M1b = MatrixWild("M1", 3, 3)
     assert \
-        str(M1.matches(M1b)) \
-        == "{a_: 3, M1_: M1_}"
+        M1.matches(M1b) \
+        == {a: 3, M1: M1b}
 
 
 def test_xreplace ():

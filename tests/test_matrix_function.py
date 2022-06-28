@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.1' # Time-stamp: <2022-06-22T19:08:35Z>
+__version__ = '0.2.3' # Time-stamp: <2022-06-25T07:26:24Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, ZeroMatrix, Identity, Matrix, Dummy, Derivative, Subs, Lambda
@@ -139,3 +139,15 @@ def test_wild_shape ():
     assert \
         str(Mf(x).matches(Mfb(x))) \
         == "{a_: N}"
+
+
+def test_diff ():
+    m = Symbol('m')
+    W = MatrixSymbol("W", m, m)
+    u = MatrixSymbol("u", m, 1)
+    phi = MatrixFunction("phi", m, 1)
+    r = phi(u)
+    ex = u - W * r
+    
+    with pytest.raises(NotImplementedError):
+        ex.diff(u)
