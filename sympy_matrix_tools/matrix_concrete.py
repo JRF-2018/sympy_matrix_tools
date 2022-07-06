@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.1.3' # Time-stamp: <2022-05-05T09:59:11Z>
+__version__ = '0.2.4' # Time-stamp: <2022-07-06T04:31:35Z>
 
 import sympy
 from sympy import Mul, Add, Sum, Product, MatrixExpr, StrPrinter, \
@@ -8,7 +8,7 @@ from sympy.matrices.expressions.matexpr import MatrixElement
 
 
 def _StrPrinter_print_MatSum (self, expr):
-    def _xab_tostr(xab):
+    def _xab_tostr (xab):
         if len(xab) == 1:
             return self._print(xab[0])
         else:

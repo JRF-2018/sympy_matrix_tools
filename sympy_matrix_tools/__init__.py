@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.3' # Time-stamp: <2022-06-24T12:11:29Z>
+__version__ = '0.2.4' # Time-stamp: <2022-07-04T10:43:27Z>
 
 import sympy
 from packaging.version import parse as parse_version
@@ -12,3 +12,4 @@ from .unif_tools import *
 if parse_version(sympy.__version__) >= parse_version('1.10.1'):
     from .matrix_symbol import *
     from .apply import *
+    from .logic_tools import *

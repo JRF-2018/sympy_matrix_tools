@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.3' # Time-stamp: <2022-06-28T15:17:16Z>
+__version__ = '0.2.4' # Time-stamp: <2022-07-06T04:36:46Z>
 
 from sympy import Function, MatrixExpr, sympify, MatrixSymbol, Expr
 from sympy.matrices.expressions.matexpr import MatrixElement, _LeftRightArgs
@@ -52,7 +52,7 @@ from packaging.version import parse as parse_version
 #         return True
 
 
-# class UndefinedMatrixFunction0(UndefinedFunction):
+# class UndefinedMatrixFunction0 (UndefinedFunction):
 #     def __new__ (mcl, name, bases=(AppliedMatrixUndef0,), __dict__=None, **kwargs):
 #         obj = super().__new__(mcl, name, bases, __dict__, **kwargs)
 #         return obj
@@ -92,7 +92,7 @@ class MatrixFunction (Function, MatrixExpr):
         elif modified:
             return c
 
-    def _xreplace(self, rule):
+    def _xreplace (self, rule):
         n, m = self.shape
         n_new, n_changed = n._xreplace(rule)
         m_new, m_changed = m._xreplace(rule)
@@ -160,7 +160,7 @@ class AppliedMatrixUndef (MatrixFunction, AppliedUndef):
         return MatrixElement(self, i, j)
 
 
-class UndefinedMatrixFunction(UndefinedFunction):
+class UndefinedMatrixFunction (UndefinedFunction):
     def __new__ (mcl, name, n, m, bases=(AppliedMatrixUndef,), __dict__=None, **kwargs):
         n, m = sympify(n), sympify(m)
 
@@ -190,7 +190,7 @@ try:
         import array_derive
 
     @array_derive.register(MatrixFunction)
-    def _(expr: MatrixFunction, x: Expr):
+    def _ (expr: MatrixFunction, x: Expr):
         raise NotImplementedError()
 
     # from sympy import Subs
@@ -212,7 +212,7 @@ try:
     # xxx = [(2, 4), (1, 3)]
 
     # @array_derive.register(AppliedMatrixUndef)
-    # def _(expr: AppliedMatrixUndef, x: Expr):
+    # def _ (expr: AppliedMatrixUndef, x: Expr):
     #     def fdiff (self, argindex=1):
     #         if not (1 <= argindex <= len(self.args)):
     #             raise ArgumentIndexError(self, argindex)

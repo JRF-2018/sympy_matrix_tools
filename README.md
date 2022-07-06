@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-06-23T13:07:27Z" -->
+<!-- Time-stamp: "2022-07-06T10:28:35Z" -->
 
 Some tools for SymPy matrices.
 
@@ -555,6 +555,84 @@ Let Sympy behave like Higher Order Logic. Each Lambda() must semantically be a s
 ...                             variables=[a, K, N])
 >>> apply_rewriterules(rls, f(3 * u, 3 * v))
 3*f(u, v)
+
+```
+
+
+## Usage of renaming bound symbols
+
+`rename_bound_symbols_uniquely`:
+
+```python
+>>> x = Symbol("x")
+>>> f = Function("f")
+>>> x1 = Symbol("x1")
+
+>>> rename_bound_symbols_uniquely(x + x1 + f(Lambda(x1, x1 + 1)))
+x + x1 + f(Lambda(x2, x2 + 1))
+
+```
+
+
+## Usage of conditional_apply
+
+`conditional_apply`, `try_rewriterule`:
+
+```python
+>>> x = Symbol("x")
+>>> y = Symbol("y")
+>>> f = Function("f")
+>>> P = Predicate("P")
+>>> Q = Predicate("Q")
+>>> R = Symbol("R", bool=True)
+>>> conditional_apply(Piecewise((f(x) + 1, P(x)), (f(x), Q(x)), (f(x), R)),
+...                   try_rewriterule(f(x), x), [Not(P(x))])
+Piecewise((f(x) + 1, Q.P(x)), (x, R | Q.Q(x)))
+
+```
+
+conditional_apply takes conditions which can also include bound variables.
+
+
+
+## Usage of predicate logic (**Experimental**)
+
+I introduced ForAll as a predicate.  You can prove predicate logic
+through proofstates.
+
+I referred to the generic proof assistant Isabelle.
+
+`resolve_implications`, `remove_trivial_assumptions`:
+
+```python
+>>> x = Symbol("x")
+>>> f = Function("f")
+>>> P = Predicate("P")
+>>> Q = Predicate("Q")
+>>> p1 = ForAll(Lambda(x, P(x)))
+>>> p2 = ForAll(Lambda(x, Implies(P(x), Q(f(x)))))
+>>> g3 = ForAll(Lambda(x, Q(f(x))))  # goal
+
+>>> z = resolve_implications(g3, p2, goal=True)
+>>> z
+Q.ForAll(Lambda(x, Implies(Q.P(x), Q.Q(f(x)))))
+>>> z = resolve_implications(z, p1)
+>>> z
+Q.ForAll(Lambda(x, Q.Q(f(x))))
+
+```
+
+In this framework, Wild symbols behave like meta variables in
+Isabelle. You need to specify boolean=True when creating Wild or
+Symbol as boolean.
+
+```python
+>>> U = Wild("U", boolean=True)
+>>> V = Wild("V", boolean=True)
+>>> W = Wild("W", boolean=True)
+>>> impE = Implies(And(Implies(U, V), U, Implies(V, W)), W)
+>>> impE
+Implies(U_ & (Implies(U_, V_)) & (Implies(V_, W_)), W_)
 
 ```
 

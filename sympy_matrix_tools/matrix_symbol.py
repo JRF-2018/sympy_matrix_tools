@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.3' # Time-stamp: <2022-06-24T23:31:21Z>
+__version__ = '0.2.4' # Time-stamp: <2022-07-06T04:30:34Z>
 
 from sympy import MatrixSymbol, Wild, Dummy, sympify, \
     MatrixExpr, WildFunction, Symbol
@@ -37,7 +37,7 @@ def _new_Basic_dummy_eq (self, other, symbol=None):
     return s.xreplace({dummy: tmp}) == o.xreplace({symbol: tmp})
 
 def _new_Basic_as_dummy (self):
-    def can(x):
+    def can (x):
         # mask free that shadow bound
         free = x.free_symbols
         bound = set(x.bound_symbols)
@@ -81,7 +81,9 @@ def _new_Basic_canonical_variables (self):
 def _new_MatrixSymbol_as_dummy (self):
     return MatrixDummy(self.name, *self.shape)
 
-def _new_MatrixSymbol_as_symbol (self, name):
+def _new_MatrixSymbol_as_symbol (self, name=None):
+    if name is None:
+        name = self.name
     return MatrixSymbol(name, *self.shape)
 
 def fix_Basic_MatrixSymbol_about_dummy ():
@@ -92,26 +94,47 @@ def fix_Basic_MatrixSymbol_about_dummy ():
     MatrixSymbol.as_symbol = _new_MatrixSymbol_as_symbol
 
 
-## fix_AssocOp__matches_commutative was needed for MatrixWild.  However, it seems not to be needed now.
+# ## fix_AssocOp__matches_commutative was needed for MatrixWild.  However, it seems not to be needed now.
 
-_orig_AssocOp__matches_commutative = None
-def _new_AssocOp__matches_commutative (self, expr, repl_dict=None, old=False):
-    try:
-        return _orig_AssocOp__matches_commutative(self, expr, repl_dict, old)
-    except TypeError:
-        return None
+# _orig_AssocOp__matches_commutative = None
+# def _new_AssocOp__matches_commutative (self, expr, repl_dict=None, old=False):
+#     try:
+#         return _orig_AssocOp__matches_commutative(self, expr, repl_dict, old)
+#     except TypeError:
+#         return None
 
-def fix_AssocOp__matches_commutative ():
-    global _orig_AssocOp__matches_commutative
-    if _orig_AssocOp__matches_commutative is None:
-        _orig_AssocOp__matches_commutative = AssocOp._matches_commutative
-    AssocOp._matches_commutative = _new_AssocOp__matches_commutative
+# def fix_AssocOp__matches_commutative ():
+#     global _orig_AssocOp__matches_commutative
+#     if _orig_AssocOp__matches_commutative is None:
+#         _orig_AssocOp__matches_commutative = AssocOp._matches_commutative
+#     AssocOp._matches_commutative = _new_AssocOp__matches_commutative
 
 
 def make_dummy (expr, name="x", dummy_index=None):
+    if expr.is_Symbol:
+        if expr.is_Matrix:
+            return MatrixDummy(name, *expr.shape, dummy_index)
+        else:
+            return Dummy(name, dummy_index, **expr.assumptions0)
     if expr.is_Matrix:
         return MatrixDummy(name, *expr.shape, dummy_index)
-    return Dummy(name)
+    return Dummy(name, dummy_index)
+
+
+def make_wild (z, name="x", exclude=(), properties=()):
+    if hasattr(z, 'as_wild'):
+        return z.as_wild(name, exclude, properties)
+    if not z.is_Symbol:
+        raise TypeError("%s is not a Symbol." % str(z))
+    if isinstance(z, MatrixSymbol):
+        return MatrixWild(name, *z.shape, exclude, properties)
+    if isinstance(z, Wild):
+        return z.func(name, exclude=z.exclude + tuple(exclude),
+                      properties=z.properties + typle(properties),
+                      **z.assumptions0)
+    else:
+        return Wild(name, exclude=exclude, properties=properties,
+                    **z.assumptions0)
 
 
 class MatrixDummy (Dummy, MatrixSymbol):
@@ -140,11 +163,11 @@ class MatrixDummy (Dummy, MatrixSymbol):
 
         return obj
     
-    def __getnewargs_ex__(self):
+    def __getnewargs_ex__ (self):
         return ((self.name, *self.shape, self.dummy_index), self.assumptions0)
 
     @property
-    def name(self):
+    def name (self):
         return self.args[0].name
 
     @property
@@ -166,13 +189,27 @@ class MatrixDummy (Dummy, MatrixSymbol):
     def as_dummy (self):
         return MatrixDummy(self.name, *self.shape)
 
+    def as_symbol (self, name=None):
+        if name is None:
+            name = self.name
+        return MatrixSymbol(name, *self.shape)
+
+    def renamed (self, name):
+        return self.func(name, *self.shape, **self.assumptions0)
+
+    def as_wild (self, name=None, exclude=(), properties=()):
+        if name is None:
+            name = self.name
+        return MatrixWild(name, *self.shape, exclude, properties,
+                          **self.assumptions0)
+    
 
 class MatrixWild (Wild, MatrixSymbol):
     is_Wild = True
     is_commutative = False
     kind: MatrixKind = MatrixKind()
 
-    def __new__(cls, name, n, m, exclude=(), properties=(), **assumptions):
+    def __new__ (cls, name, n, m, exclude=(), properties=(), **assumptions):
         obj = MatrixSymbol.__new__(cls, name, n, m)
         obj.exclude = tuple([_sympify(x) for x in exclude])
         obj.properties = tuple(properties)
@@ -184,12 +221,12 @@ class MatrixWild (Wild, MatrixSymbol):
         
         return obj
 
-    def __getnewargs_ex__(self):
+    def __getnewargs_ex__ (self):
         return ((self.name, *self.shape, self.exclude, self.properties),
                 self.assumptions0)
 
     @property
-    def name(self):
+    def name (self):
         return self.args[0].name
 
     def _hashable_content (self):
@@ -232,6 +269,18 @@ class MatrixWild (Wild, MatrixSymbol):
 
     def as_dummy (self):
         return MatrixDummy(self.name, *self.shape)
+
+    def renamed (self, name):
+        return self.func(name, *self.shape, self.exclude, self.properties,
+                         **self.assumptions0)
+
+    def as_wild (self, name=None, exclude=(), properties=()):
+        if name is None:
+            name = self.name
+        return self.func(name, *self.shape,
+                         exclude=self.exclude+tuple(exclude),
+                         properties=self.properties+tuple(properties),
+                         **self.assumptions0)
 
 
 class WildMatrixFunction (WildFunction, MatrixFunction):  # type: ignore

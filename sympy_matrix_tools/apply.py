@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.3' # Time-stamp: <2022-06-24T23:02:40Z>
+__version__ = '0.2.4' # Time-stamp: <2022-07-06T04:33:07Z>
 
 from sympy import Expr, MatrixExpr, AppliedPredicate, Lambda,\
     sympify, Wild, Dummy
@@ -60,7 +60,7 @@ class Apply (Expr):
         return d
 
 
-class MatApply(Apply, MatrixExpr):
+class MatApply (Apply, MatrixExpr):
     is_Matrix = True
     
     def __new__ (cls, m, n, lmd, *args, **kwargs):
@@ -104,7 +104,7 @@ class MatApply(Apply, MatrixExpr):
         return d
 
 
-class PredApply(Apply, AppliedPredicate):
+class PredApply (Apply, AppliedPredicate):
     def __new__ (cls, lmd, *args, **kwargs):
         lmd = sympify(lmd)
         if isinstance(lmd, Lambda) or callable(lmd):
