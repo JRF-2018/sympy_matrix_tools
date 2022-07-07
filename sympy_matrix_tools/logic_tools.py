@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.5' # Time-stamp: <2022-07-07T14:12:08Z>
+__version__ = '0.2.6' # Time-stamp: <2022-07-07T14:26:56Z>
 
 from sympy import And, Implies, Predicate, Lambda, AppliedPredicate, Wild,\
     sympify
@@ -269,15 +269,17 @@ def _resolve_implications (x, z, bounded=None, gvs=()):
 def resolve_implications (proofstate, z, index=None, goal=False,
                           resolver=_resolve_implications, **kwargs):
 
-    """Return the next proofstate which is resolved by proofstate and z.
+    """
+    Return the next proofstate which is resolved by proofstate and z.
 
     I referred to the generic proof assistant Isabelle.
 
     Parameters
     ==========
 
-    proofstate : a implication whose premises are subgoals and
-    conclusion is the goal.
+    proofstate : an implication whose premises are subgoals and
+    conclusion is the goal. Each proofstate is an ordinary theorem
+    itself.
 
     z : a theorem to be applied to the proofstate.
 
@@ -316,7 +318,7 @@ def resolve_implications (proofstate, z, index=None, goal=False,
     >>> impE = Implies(And(Implies(U, V), U, Implies(V, W)), W)
     >>> impE
     Implies(U_ & (Implies(U_, V_)) & (Implies(V_, W_)), W_)
-    
+
     """
     
     gvs = ()

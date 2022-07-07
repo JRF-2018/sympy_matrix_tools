@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-07-06T10:28:35Z" -->
+<!-- Time-stamp: "2022-07-07T14:24:45Z" -->
 
 Some tools for SymPy matrices.
 
@@ -598,7 +598,7 @@ conditional_apply takes conditions which can also include bound variables.
 ## Usage of predicate logic (**Experimental**)
 
 I introduced ForAll as a predicate.  You can prove predicate logic
-through proofstates.
+through proofstates. Each proofstate is an ordinary theorem itself.
 
 I referred to the generic proof assistant Isabelle.
 
