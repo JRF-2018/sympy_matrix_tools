@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-07-07T14:24:45Z" -->
+<!-- Time-stamp: "2022-07-07T14:33:05Z" -->
 
 Some tools for SymPy matrices.
 
@@ -616,9 +616,16 @@ I referred to the generic proof assistant Isabelle.
 >>> z = resolve_implications(g3, p2, goal=True)
 >>> z
 Q.ForAll(Lambda(x, Implies(Q.P(x), Q.Q(f(x)))))
+>>> print_proofstate(z)
+ForAll: x
+prem 0: Q.P(x)
+gl: Q.Q(f(x))
 >>> z = resolve_implications(z, p1)
 >>> z
 Q.ForAll(Lambda(x, Q.Q(f(x))))
+>>> print_proofstate(z)
+ForAll: x
+gl: Q.Q(f(x))
 
 ```
 
