@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-07-07T14:43:03Z" -->
+<!-- Time-stamp: "2022-07-07T14:46:30Z" -->
 
 Some tools for SymPy matrices.
 
@@ -615,7 +615,7 @@ I referred to the generic proof assistant Isabelle.
 
 >>> # Specifying goal=True, make g3 as
 >>> # a proofstate of Implies(g3, g3)
->>> # and then reolve it with p2.
+>>> # and then resolve it with p2.
 >>> z = resolve_implications(g3, p2, goal=True) 
 >>> z
 Q.ForAll(Lambda(x, Implies(Q.P(x), Q.Q(f(x)))))
