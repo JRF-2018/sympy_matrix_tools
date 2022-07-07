@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.4' # Time-stamp: <2022-07-06T04:23:09Z>
+__version__ = '0.2.5' # Time-stamp: <2022-07-07T14:15:06Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, Function, Lambda, Wild
@@ -71,19 +71,19 @@ def test_resolve_implications (capfd):
                                        Implies(PredApply(R, x1), V)), V)))
     p5 = and_implication_normal_form(p5)
     z = resolve_implications(g4, p5, goal=True)
-    print_proofstate(z)
+    print_proofstate(z) # *Y1*
     out, err = capfd.readouterr()
     assert \
         out == \
         "ForAll: x1\n" + \
         "prem 0: Q.ForAll(Lambda(x2, Q.P(x2)))\n" + \
         "prem 1: Q.ForAll(Lambda(x3, Implies(Q.P(x3), Q.Q(f(x3)))))\n" + \
-        "prem 2: Implies(PredApply(R_, x_, x1) & Q.ForAll(Lambda(x5, Q.P(x5))) & Q.ForAll(Lambda(x6, Implies(Q.P(x6), Q.Q(f(x6))))), Q.Q(f(x1)))\n" + \
-        "prem 3: Q.ForAll(Lambda(x4, Implies(Q.ForAll(Lambda(x7, Q.P(x7))) & Q.ForAll(Lambda(x8, Implies(Q.P(x8), Q.Q(f(x8))))), PredApply(R_, x4, x1))))\n" + \
+        "prem 2: Q.ForAll(Lambda(x4, Implies(Q.ForAll(Lambda(x7, Q.P(x7))) & Q.ForAll(Lambda(x8, Implies(Q.P(x8), Q.Q(f(x8))))), PredApply(R_, x4, x1))))\n" + \
+        "prem 3: Implies(PredApply(R_, Apply(x_, x1), x1) & Q.ForAll(Lambda(x5, Q.P(x5))) & Q.ForAll(Lambda(x6, Implies(Q.P(x6), Q.Q(f(x6))))), Q.Q(f(x1)))\n" + \
         "gl: Q.Q(f(x1))\n"
-    z = try_remove_trivial_assumptions(z, 3)
+    z = remove_trivial_assumptions(z, 2)
     z = resolve_implications(z, p5, index=2)
-    z = try_remove_trivial_assumptions(z, 3, 2)
+    z = try_remove_trivial_assumptions(z, 2, 2)
     z = remove_trivial_assumptions(z, index=2, num=1)
     z = remove_trivial_assumptions(z, index=2, num=0)
     print_proofstate(z)
@@ -95,8 +95,8 @@ def test_resolve_implications (capfd):
         "prem 1: Q.ForAll(Lambda(x2, Implies(Q.P(x2), Q.Q(f(x2)))))\n" + \
         "gl: Q.Q(f(x))\n"
 
-    z = eresolve_implications(g4, p5, goal=True, elim_index=1)
-    z = eresolve_implications(z, p5, index=2, elim_index=1)
+    z = eresolve_implications(g4, p5, goal=True, elim_index=0)
+    z = eresolve_implications(z, p5, index=2, elim_index=0)
     W = Wild("W", boolean=True)
     U = Wild("U", boolean=True)
     impE = Implies(And(Implies(U, V), U, Implies(V, W)), W)
@@ -111,8 +111,8 @@ def test_resolve_implications (capfd):
         "prem 1: Q.ForAll(Lambda(x2, Implies(Q.P(x2), Q.Q(f(x2)))))\n" + \
         "gl: Q.Q(f(x))\n"
 
-    z = eresolve_implications(g4, p5, goal=True, elim_index=1)
-    z = eresolve_implications(z, p5, index=2, elim_index=1)
+    z = eresolve_implications(g4, p5, goal=True, elim_index=0)
+    z = eresolve_implications(z, p5, index=2, elim_index=0)
     W = Wild("W", boolean=True)
     U = Wild("U", boolean=True)
     impE = Implies(And(Implies(U, V), U, Implies(V, W)), W)
@@ -127,3 +127,9 @@ def test_resolve_implications (capfd):
         "prem 0: Q.ForAll(Lambda(x1, Q.P(x1)))\n" + \
         "prem 1: Q.ForAll(Lambda(x2, Implies(Q.P(x2), Q.Q(f(x2)))))\n" + \
         "gl: Q.Q(f(x))\n"
+
+    z = forall_eresolve_implications(g4, goal=True)
+    z = forall_eresolve_implications(z, goal=True)
+    z = try_remove_trivial_assumptions(z)
+    print_proofstate(z)
+    out, err = capfd.readouterr()

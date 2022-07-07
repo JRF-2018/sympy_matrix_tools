@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.4' # Time-stamp: <2022-07-06T10:27:17Z>
+__version__ = '0.2.5' # Time-stamp: <2022-07-07T14:12:08Z>
 
-from sympy import And, Implies, Predicate, Lambda, AppliedPredicate, Wild
+from sympy import And, Implies, Predicate, Lambda, AppliedPredicate, Wild,\
+    sympify
+
 from sympy.unify import unify
 from .matrix_symbol import make_dummy, make_wild
 from .unif_tools import rename_bound_symbols_uniquely, construct_term
@@ -109,24 +111,35 @@ def make_bound_symbols_wild (z, unif=None):
                          for a in z.args]).subs(inv)
 
 
-def get_premises_and_conclusion (z):
+def get_forall_symbols (z):
+    vs = []
     while is_ForAll(z) and isinstance(z.arguments[0], Lambda):
+        vs.extend(list(z.arguments[0].args[0]))
+        z = z.arguments[0].args[1]
+    return tuple(vs), z
+
+
+def get_syms_prems_concl (z):
+    """Get ForAll symbols and premises and conclusion."""
+    vs = []
+    while is_ForAll(z) and isinstance(z.arguments[0], Lambda):
+        vs.extend(list(z.arguments[0].args[0]))
         z = z.arguments[0].args[1]
     if not isinstance(z, Implies):
-        return None, z
-    prems = []
+        return tuple(vs), [], z
     il = z
+    prems = []
     while isinstance(il, Implies):
         prems.extend(il.args[0:len(il.args) - 1])
         il = il.args[len(il.args) - 1]
     prems = sum([(list(a.args) if isinstance(a, And) else [a])
                  for a in prems], [])
-    return prems, il
+    return tuple(vs), prems, il
 
 
 def get_numbered_premise (z, num):
-    prems, il = get_premises_and_conclusion(z)
-    if prems is None:
+    syms, prems, il = get_syms_prems_concl(z)
+    if not prems:
         return None
     if num < len(prems):
         return prems[num]
@@ -175,7 +188,8 @@ def _lift_wild (z, symbols, exclude=()):
        and z.function not in exclude:
         a = set(z.arguments)
         return z.func(z.function,
-                      *(tuple(z.arguments) + tuple(symbols)))
+                      *(tuple([_lift_wild(x, symbols, exclude=exclude)
+                               for x in z.arguments]) + tuple(symbols)))
     if z.is_Symbol and z.is_Wild and z not in exclude:
         if z.is_Matrix:
             return MatApply(Wild(z.name, exclude=z.exclude), *symbols)
@@ -231,28 +245,10 @@ def _match_or_unify (z1, z2, exclude=()):
 def _resolve_implications (x, z, bounded=None, gvs=()):
     if bounded is None:
         bounded = {}
-    lvs = ()
-    if is_ForAll(x) and isinstance(x.arguments[0], Lambda):
-        lam = x.arguments[0]
-        lvs = lam.args[0]
-        x = lam.args[1]
+    lvs, xprems, xil = get_syms_prems_concl(x)
     z = lift_wild(z, gvs + lvs)
-    if isinstance(z, Implies):
-        zprems = z.args[0:len(z.args) - 1]
-        zil = z.args[len(z.args) - 1]
-        zprems = sum([(list(a.args) if isinstance(a, And) else [a])
-                      for a in zprems], [])
-    else:
-        zprems = []
-        zil = z
-    if isinstance(x, Implies):
-        xprems = x.args[0:len(x.args) - 1]
-        xil = x.args[len(x.args) - 1]
-        xprems = sum([(list(a.args) if isinstance(a, And) else [a])
-                      for a in xprems], [])
-    else:
-        xprems = []
-        xil = x
+    zvs, zprems, zil = get_syms_prems_concl(z)
+    assert not zvs
 
     for d in _match_or_unify(xil, zil, exclude=gvs + lvs):
         done = True
@@ -272,6 +268,7 @@ def _resolve_implications (x, z, bounded=None, gvs=()):
 
 def resolve_implications (proofstate, z, index=None, goal=False,
                           resolver=_resolve_implications, **kwargs):
+
     """Return the next proofstate which is resolved by proofstate and z.
 
     I referred to the generic proof assistant Isabelle.
@@ -334,15 +331,13 @@ def resolve_implications (proofstate, z, index=None, goal=False,
             bounded[k] = set()
         bounded[k] = bounded[k] | v
 
-    if is_ForAll(proofstate) and isinstance(proofstate.arguments[0], Lambda):
-        lam = proofstate.arguments[0]
-        gvs = lam.args[0]
-        proofstate = lam.args[1]
+    gvs, proofstate = get_forall_symbols(proofstate)
     if goal:
         prems = [proofstate]
         il = proofstate
     else:
-        prems, il = get_premises_and_conclusion(proofstate)
+        vs, prems, il = get_syms_prems_concl(proofstate)
+        assert not vs
     for i, x in enumerate(prems):
         if index is not None and i != index:
             continue
@@ -366,31 +361,13 @@ def _eresolve_implications (x, z, bounded=None, gvs=(), elim_index=0,
                             elim=True):
     if bounded is None:
         bounded = {}
-    lvs = ()
-    if is_ForAll(x) and isinstance(x.arguments[0], Lambda):
-        lam = x.arguments[0]
-        lvs = lam.args[0]
-        x = lam.args[1]
+    lvs, xprems, xil = get_syms_prems_concl(x)
     z = lift_wild(z, gvs + lvs)
-    if isinstance(z, Implies):
-        zprems = z.args[0:len(z.args) - 1]
-        zil = z.args[len(z.args) - 1]
-        zprems = sum([(list(a.args) if isinstance(a, And) else [a])
-                      for a in zprems], [])
-    else:
-        zprems = []
-        zil = z
-
-    if len(zprems) < 1:
+    zvs, zprems, zil = get_syms_prems_concl(z)
+    assert not zvs
+    if len(zprems) < elim_index + 1:
         return
-    if isinstance(x, Implies):
-        xprems = x.args[0:len(x.args) - 1]
-        xil = x.args[len(x.args) - 1]
-        xprems = sum([(list(a.args) if isinstance(a, And) else [a])
-                      for a in xprems], [])
-    else:
-        xprems = []
-        xil = x
+
     for i, u in enumerate(xprems):
         for d1 in _match_or_unify(u, zprems[elim_index], exclude=gvs + lvs):
             nxprems = [y.xreplace(d1) for y in xprems]
@@ -420,35 +397,55 @@ def eresolve_implications (proofstate, z, index=None, goal=False,
                                 elim=elim)
 
 
+def _forall_eresolve_implications (x, z, bounded=None, gvs=(),
+                                   forall_index=None, elim=True):
+    if bounded is None:
+        bounded = {}
+    lvs, xprems, xil = get_syms_prems_concl(x)
+
+    for i, u in enumerate(xprems):
+        if is_ForAll(u):
+            if forall_index is not None and i != forall_index:
+                continue
+            z = u
+            f = z.free_symbols
+            z = make_outer_forall_wild(z)
+            z = make_bound_symbols_wild(z)
+            z = lift_wild(z, gvs + lvs, exclude=f)
+            nxprems = xprems.copy()
+            nx = xil
+            if elim:
+                nxprems = nxprems[0:i] + nxprems[i+1:]
+            if nxprems:
+                nx = Implies(And(*(nxprems + [z])), nx)
+            else:
+                nx = Implies(z, nx)
+            if lvs:
+                nx = ForAll(Lambda(lvs, nx))
+            print("nx", nx)
+            yield [nx], {}
+
+
+def forall_eresolve_implications (proofstate, index=None, goal=False,
+                                  forall_index=None, elim=True):
+    return resolve_implications(proofstate, sympify(True),
+                                index=index, goal=goal,
+                                resolver=_forall_eresolve_implications,
+                                forall_index=forall_index,
+                                elim=elim)
+
+
 def _dresolve_implications (x, z, bounded=None, gvs=(), elim_index=0,
                             elim=True):
     if bounded is None:
         bounded = {}
-    lvs = ()
-    if is_ForAll(x) and isinstance(x.arguments[0], Lambda):
-        lam = x.arguments[0]
-        lvs = lam.args[0]
-        x = lam.args[1]
+    lvs, xprems, xil = get_syms_prems_concl(x)
     z = lift_wild(z, gvs + lvs)
-    if isinstance(z, Implies):
-        zprems = z.args[0:len(z.args) - 1]
-        zil = z.args[len(z.args) - 1]
-        zprems = sum([(list(a.args) if isinstance(a, And) else [a])
-                      for a in zprems], [])
-    else:
-        zprems = []
-        zil = z
-
-    if len(zprems) < 1:
+    zvs, zprems, zil = get_syms_prems_concl(z)
+    assert not zvs
+    if len(zprems) < elim_index + 1:
         return
-    if isinstance(x, Implies):
-        xprems = x.args[0:len(x.args) - 1]
-        xil = x.args[len(x.args) - 1]
-        xprems = sum([(list(a.args) if isinstance(a, And) else [a])
-                      for a in xprems], [])
-    else:
-        xprems = []
-        xil = x
+
     for i, u in enumerate(xprems):
         for d1 in _match_or_unify(u, zprems[elim_index], exclude=gvs + lvs):
             nxprems = [y.xreplace(d1) for y in xprems]
@@ -482,62 +479,47 @@ def dresolve_implications (proofstate, z, index=None, goal=False,
 def _remove_trivial_assumptions (x, bounded=None, gvs=()):
     if bounded is None:
         bounded = {}
+    lvs, xprems, xil = get_syms_prems_concl(x)
 
-    lvs = ()
-    if is_ForAll(x) and isinstance(x.arguments[0], Lambda):
-        lam = x.arguments[0]
-        lvs = lam.args[0]
-        x = lam.args[1]
-    if isinstance(x, Implies):
-        xprems = x.args[0:len(x.args) - 1]
-        xil = x.args[len(x.args) - 1]
-        xprems = sum([(list(a.args) if isinstance(a, And) else [a])
-                      for a in xprems], [])
-        for i, z in enumerate(xprems):
-            f = z.free_symbols
-            z = make_outer_forall_wild(z)
-            z = make_bound_symbols_wild(z)
-            z = lift_wild(z, gvs + lvs, exclude=f)
-            for d in _match_or_unify(xil, z, exclude=gvs + lvs):
+    for i, z in enumerate(xprems):
+        f = z.free_symbols
+        z = make_outer_forall_wild(z)
+        z = make_bound_symbols_wild(z)
+        z = lift_wild(z, gvs + lvs, exclude=f)
+        for d in _match_or_unify(xil, z, exclude=gvs + lvs):
+            done = True
+            for k, v in d.items():
+                if k in bounded and bounded[k] & v.free_symbols:
+                    done = False
+                    break
+            if done:
+                yield [], d
+        zvs, zprems, zil = get_syms_prems_concl(z)
+        assert not zvs
+        if zprems:
+            for d in _match_or_unify(xil, zil, exclude=gvs + lvs):
                 done = True
                 for k, v in d.items():
                     if k in bounded and bounded[k] & v.free_symbols:
                         done = False
                         break
-                if done:
-                    yield [], d
-            if isinstance(z, Implies):
-                zprems = z.args[0:len(z.args) - 1]
-                zil = z.args[len(z.args) - 1]
-                zprems = sum([(list(a.args) if isinstance(a, And) else [a])
-                              for a in zprems], [])
-                for d in _match_or_unify(xil, zil, exclude=gvs + lvs):
-                    done = True
-                    for k, v in d.items():
-                        if k in bounded and bounded[k] & v.free_symbols:
-                            done = False
-                            break
-                    if not done:
-                        continue
-                    nzprems = [y.xreplace(d) for y in zprems]
-                    nxprems = [y.xreplace(d) for y in xprems]
-                    if nxprems:
-                        nzprems = [Implies(And(*nxprems), y) for y in nzprems]
-                    # if lvs:
-                    #     nzprems = [ForAll(Lambda(lvs, y)) for y in nzprems]
-                    yield nzprems, d
+                if not done:
+                    continue
+                nzprems = [y.xreplace(d) for y in zprems]
+                nxprems = [y.xreplace(d) for y in xprems]
+                if nxprems:
+                    nzprems = [Implies(And(*nxprems), y) for y in nzprems]
+                # if lvs:
+                #     nzprems = [ForAll(Lambda(lvs, y)) for y in nzprems]
+                yield nzprems, d
 
 
 def remove_trivial_assumptions (proofstate, index=None, num=None):
-    gvs = ()
-    if is_ForAll(proofstate) and isinstance(proofstate.arguments[0], Lambda):
-        lam = proofstate.arguments[0]
-        gvs = lam.args[0]
-        proofstate = lam.args[1]
-    prems, il = get_premises_and_conclusion(proofstate)
+
+    gvs, prems, il = get_syms_prems_concl(proofstate)
     l = []
     bounded = bound_symbols_for_free(proofstate)
-    if prems is None or not prems:
+    if not prems:
         return il
     for i, x in enumerate(prems):
         if index is not None and i != index:
@@ -564,7 +546,7 @@ def remove_trivial_assumptions (proofstate, index=None, num=None):
         return None
 
     def prems_num (x):
-        prems, _ = get_premises_and_conclusion(x)
+        _, prems, _ = get_syms_prems_concl(x)
         if prems is None:
             return 0
         return len(prems)
@@ -583,10 +565,7 @@ def try_remove_trivial_assumptions (proofstate, index=None, num=None):
 
 def print_proofstate (z):
     gvs = ()
-    while is_ForAll(z) and isinstance(z.arguments[0], Lambda):
-        gvs = gvs + tuple(z.arguments[0].args[0])
-        z = z.arguments[0].args[1]
-    prems, il = get_premises_and_conclusion(z)
+    gvs, prems, il = get_syms_prems_concl(z)
     if gvs:
         print("ForAll:", *gvs)
     if prems:
