@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.4' # Time-stamp: <2022-07-06T02:54:01Z>
+__version__ = '0.2.7' # Time-stamp: <2022-07-07T20:55:11Z>
 
 import re
 from sympy import preorder_traversal, Eq, Equivalent, And, Implies
@@ -196,7 +196,7 @@ def _rename_bound_symbols_uniquely (term, addr, unif, exclude=()):
         for i, x in enumerate(b):
             if x in exclude:
                 continue
-            m = re.match(r'(.*(?:[^01-9]))?([01-9]+)$', x.name)
+            m = re.match(r'(.*[^01-9])?([01-9]+)$', x.name)
             if m:
                 xr = m.group(1) or ""
             else:
@@ -276,7 +276,7 @@ def rename_bound_symbols_uniquely (term_or_list_of_list,
         for i, x in enumerate(a1):
             if x in exclude:
                 continue
-            m = re.match(r'(.*(?:[^01-9]))?([01-9]+)$', x.name)
+            m = re.match(r'(.*[^01-9])?([01-9]+)$', x.name)
             if m:
                 xr = m.group(1) or ""
             else:
@@ -323,7 +323,7 @@ def conditional_apply (z, func, conds, match=None):
     if not conds:
         if match is None:
             return func(z)
-        if callable(match) and not isinstance(match, Lambda):
+        if callable(match) and not isinstance(match, Basic):
             if match(z):
                 return func(z)
         if z.match(match) is not None:
