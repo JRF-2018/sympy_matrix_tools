@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.7' # Time-stamp: <2022-07-07T20:55:11Z>
+__version__ = '0.3.0' # Time-stamp: <2022-07-08T17:06:49Z>
 
 import re
 from sympy import preorder_traversal, Eq, Equivalent, And, Implies
@@ -245,7 +245,7 @@ def rename_bound_symbols_uniquely (term_or_list_of_list,
     >>> x = Symbol("x")
     >>> x1 = Symbol("x1")
     >>> f = Function("f")
-    >>> rename_bound_symbols_uniquely(x + x1 + f(Lambda(x1, x1 + 1))
+    >>> rename_bound_symbols_uniquely(x + x1 + f(Lambda(x1, x1 + 1)))
     x + x1 + f(Lambda(x2, x2 + 1))
 
     """
@@ -285,10 +285,8 @@ def rename_bound_symbols_uniquely (term_or_list_of_list,
             unif[x] = y
         r1 = []
         for i2, z in enumerate(l1):
-            r2 = construct_term(z.func,
-                                *[_rename_bound_symbols_uniquely(
-                                    a, [i1, i2, i], unif, exclude=exclude)
-                                  for i, a in enumerate(z.args)])
+            r2 = _rename_bound_symbols_uniquely(
+                z, [i1, i2], unif, exclude=exclude)
             r1.append(r2)
         r.append(r1)
 

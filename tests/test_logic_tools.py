@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.7' # Time-stamp: <2022-07-08T03:09:38Z>
+__version__ = '0.3.0' # Time-stamp: <2022-07-08T10:53:10Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, Function, Lambda, Wild
@@ -51,41 +51,54 @@ def test_resolve_implications (capfd):
     p2 = ForAll(Lambda(x, Implies(P(x), Q(f(x)))))
     g3 = ForAll(Lambda(x, Q(f(x))))
 
-    z = resolve_implications(g3, p2, goal=True)
+    z = make_proofstate(g3)
     assert \
         str(z) \
-        == "Q.ForAll(Lambda(x, Implies(Q.P(x), Q.Q(f(x)))))"
-
+        == "Implies(Q.ForAll(Lambda(x, Q.Q(f(x)))), FrozenGoal(Q.ForAll(Lambda(x1, Q.Q(f(x1))))))"
+    print_proofstate(z)
+    out, err = capfd.readouterr()
+    assert \
+        out == \
+        "prem 0: Q.ForAll(Lambda(x, Q.Q(f(x))))\n" + \
+        "gl*: Q.ForAll(Lambda(x1, Q.Q(f(x1))))\n"
+    z = resolve_implications(z, p2)
     z = resolve_implications(z, p1)
+    z = melt_theorem(z)
+    print_proofstate(z)
+    out, err = capfd.readouterr()
     assert \
-        str(z) \
-        == "Q.ForAll(Lambda(x, Q.Q(f(x))))"
+        out == \
+        "ForAll: x\n" + \
+        "gl: Q.Q(f(x))\n"
+    assert \
+        z \
+        == ForAll(Lambda(x, Q(f(x))))
 
+
+    # *X6Y0*
     g4 = Implies(And(p1, p2), g3)
     g4 = and_implication_normal_form(g4)
-
     R = Wild("R")
     V = Wild("V", boolean=True)
     x1 = Wild("x1")
     p5 = ForAll(Lambda(x1, Implies(And(ForAll(Lambda(x, PredApply(R, x))),
                                        Implies(PredApply(R, x1), V)), V)))
     p5 = and_implication_normal_form(p5)
-    z = resolve_implications(g4, p5, goal=True)
-    print_proofstate(z) # *Y1*
-    out, err = capfd.readouterr()
-    assert \
-        out == \
-        "ForAll: x1\n" + \
-        "prem 0: Q.ForAll(Lambda(x2, Q.P(x2)))\n" + \
-        "prem 1: Q.ForAll(Lambda(x3, Implies(Q.P(x3), Q.Q(f(x3)))))\n" + \
-        "prem 2: Q.ForAll(Lambda(x4, Implies(Q.ForAll(Lambda(x7, Q.P(x7))) & Q.ForAll(Lambda(x8, Implies(Q.P(x8), Q.Q(f(x8))))), PredApply(R_, x4, x1))))\n" + \
-        "prem 3: Implies(PredApply(R_, Apply(x_, x1), x1) & Q.ForAll(Lambda(x5, Q.P(x5))) & Q.ForAll(Lambda(x6, Implies(Q.P(x6), Q.Q(f(x6))))), Q.Q(f(x1)))\n" + \
-        "gl: Q.Q(f(x1))\n"
-    z = remove_trivial_assumptions(z, 2)
-    z = resolve_implications(z, p5, index=2)
-    z = try_remove_trivial_assumptions(z, 2, 2)
-    z = remove_trivial_assumptions(z, index=2, num=1)
-    z = remove_trivial_assumptions(z, index=2, num=0)
+    z = make_proofstate(g4)
+    # *X6Y1
+    z = resolve_implications(z, p5)
+    # *X6Y2*
+    z = remove_trivial_assumptions(z, num=("prem", ("prem", [("not", ForAll), P])))
+    # *X6Y3*
+    z = resolve_implications(z, p5)
+    # *X6Y4*
+    z = remove_trivial_assumptions(z, num=("prem", ("prem", [("not", ForAll), Implies])))
+    # *X6Y5*
+    z = remove_trivial_assumptions(z, num=("prem", ("prem", [("not", Implies)])))
+    # *X6Y6*
+    z = remove_trivial_assumptions(z)
+    # *X6Y7*
+    z = melt_theorem(z)
     print_proofstate(z)
     out, err = capfd.readouterr()
     assert \
@@ -95,13 +108,22 @@ def test_resolve_implications (capfd):
         "prem 1: Q.ForAll(Lambda(x2, Implies(Q.P(x2), Q.Q(f(x2)))))\n" + \
         "gl: Q.Q(f(x))\n"
 
-    z = eresolve_implications(g4, p5, goal=True, elim_index=ForAll)
-    z = eresolve_implications(z, p5, index=2, elim_index=ForAll)
+
+    # *X7*
+    z = make_proofstate(g4)
+    # *X7Y1*
+    z = eresolve_implications(z, p5, elim_index=ForAll)
+    # *X7Y2*
+    z = eresolve_implications(z, p5, elim_index=ForAll)
+    # *X7Y3*
     W = Wild("W", boolean=True)
     U = Wild("U", boolean=True)
     impE = Implies(And(Implies(U, V), U, Implies(V, W)), W)
-    z = eresolve_implications(z, impE, index=2, elim_index=["U", "V"])
+    z = eresolve_implications(z, impE, elim_index=["U", "V"])
+    # *X7Y4*
     z = try_remove_trivial_assumptions(z)
+    # *X7Y5*
+    z = melt_theorem(z)
     print_proofstate(z)
     out, err = capfd.readouterr()
     assert \
@@ -110,15 +132,73 @@ def test_resolve_implications (capfd):
         "prem 0: Q.ForAll(Lambda(x1, Q.P(x1)))\n" + \
         "prem 1: Q.ForAll(Lambda(x2, Implies(Q.P(x2), Q.Q(f(x2)))))\n" + \
         "gl: Q.Q(f(x))\n"
-
-    z = eresolve_implications(g4, p5, goal=True, elim_index=ForAll)
-    z = eresolve_implications(z, p5, index=2, elim_index=ForAll)
+    
+    # *X8*
+    z = make_proofstate(g4)
+    # *X8Y2*
+    z = eresolve_implications(z, p5, elim_index=ForAll)
+    # *X8Y3*
+    z = eresolve_implications(z, p5, elim_index=ForAll)
+    # *X8Y4*
     W = Wild("W", boolean=True)
     U = Wild("U", boolean=True)
     impE = Implies(And(Implies(U, V), U, Implies(V, W)), W)
-    z = dresolve_implications(z, impE, index=2, elim_index=["U", "V"])
-    z = try_remove_trivial_assumptions(z, 3)
+    z = dresolve_implications(z, impE, elim_index=[Implies(U, V), "U", "V"])
+    # *X8Y5*
+    z = try_remove_trivial_assumptions(z, index=[("prem", PredApply), 0])
     z = try_remove_trivial_assumptions(z)
+    # *X8Y6*
+    z = melt_theorem(z)
+    print_proofstate(z)
+    out, err = capfd.readouterr()
+    assert \
+        out == \
+        "ForAll: x\n" + \
+        "prem 0: Q.ForAll(Lambda(x1, Q.P(x1)))\n" + \
+        "prem 1: Q.ForAll(Lambda(x2, Implies(Q.P(x2), Q.Q(f(x2)))))\n" + \
+        "gl: Q.Q(f(x))\n"
+    
+    # *X9*
+    z = make_proofstate(g4)
+    # *X9*Y1*
+    z = forall_eresolve_implications(z, forall_index=0)
+    # *X9*Y2*
+    z = forall_eresolve_implications(z)
+    # *X9*Y3*
+    z = try_remove_trivial_assumptions(z, index=("premnum", [">", 2]))
+    # *X9Y4*
+    z = melt_theorem(z)
+    print_proofstate(z)
+    out, err = capfd.readouterr()
+    assert \
+        out == \
+        "ForAll: x\n" + \
+        "prem 0: Q.ForAll(Lambda(x1, Q.P(x1)))\n" + \
+        "prem 1: Q.ForAll(Lambda(x2, Implies(Q.P(x2), Q.Q(f(x2)))))\n" + \
+        "gl: Q.Q(f(x))\n"
+    
+    # *X10*
+    z = make_proofstate(g4)
+    z = sresolve_implications(z, p5, index=0)
+    print_proofstate(z)
+    out, err = capfd.readouterr()
+    assert \
+        out == \
+        "prem 0: Q.ForAll(Lambda((x1, x2), Implies(Q.ForAll(Lambda(x6, Q.P(x6))) & Q.ForAll(Lambda(x7, Implies(Q.P(x7), Q.Q(f(x7))))), PredApply(R_, x2, x1))))\n" + \
+        "prem 1: Q.ForAll(Lambda(x3, Implies(PredApply(V_, x3) & Q.ForAll(Lambda(x8, Q.P(x8))) & Q.ForAll(Lambda(x9, Implies(Q.P(x9), Q.Q(f(x9))))), Q.Q(f(x3)))))\n" + \
+        "prem 2: Q.ForAll(Lambda(x4, Implies(PredApply(R_, Apply(x_, x4), x4) & Q.ForAll(Lambda(x10, Q.P(x10))) & Q.ForAll(Lambda(x11, Implies(Q.P(x11), Q.Q(f(x11))))), PredApply(V_, x4))))\n" + \
+        "gl*: Q.ForAll(Lambda(x5, Implies(Q.ForAll(Lambda(x12, Q.P(x12))) & Q.ForAll(Lambda(x13, Implies(Q.P(x13), Q.Q(f(x13))))), Q.Q(f(x5)))))\n" or \
+        out == \
+        "prem 0: Q.ForAll(Lambda((x2, x1), Implies(Q.ForAll(Lambda(x6, Q.P(x6))) & Q.ForAll(Lambda(x7, Implies(Q.P(x7), Q.Q(f(x7))))), PredApply(R_, x1, x2))))\n" + \
+        "prem 1: Q.ForAll(Lambda(x3, Implies(PredApply(V_, x3) & Q.ForAll(Lambda(x8, Q.P(x8))) & Q.ForAll(Lambda(x9, Implies(Q.P(x9), Q.Q(f(x9))))), Q.Q(f(x3)))))\n" + \
+        "prem 2: Q.ForAll(Lambda(x4, Implies(PredApply(R_, Apply(x_, x4), x4) & Q.ForAll(Lambda(x10, Q.P(x10))) & Q.ForAll(Lambda(x11, Implies(Q.P(x11), Q.Q(f(x11))))), PredApply(V_, x4))))\n" + \
+        "gl*: Q.ForAll(Lambda(x5, Implies(Q.ForAll(Lambda(x12, Q.P(x12))) & Q.ForAll(Lambda(x13, Implies(Q.P(x13), Q.Q(f(x13))))), Q.Q(f(x5)))))\n"
+
+    # *X11*
+    prems, z = make_proofstate(g4, split_prems=True)
+    z = resolve_implications(z, prems[1])
+    z = resolve_implications(z, prems[0])
+    z = melt_theorem(z)
     print_proofstate(z)
     out, err = capfd.readouterr()
     assert \
@@ -128,34 +208,18 @@ def test_resolve_implications (capfd):
         "prem 1: Q.ForAll(Lambda(x2, Implies(Q.P(x2), Q.Q(f(x2)))))\n" + \
         "gl: Q.Q(f(x))\n"
 
-    z = forall_eresolve_implications(g4, goal=True, forall_index=0)
-    z = forall_eresolve_implications(z, goal=True)
-    z = try_remove_trivial_assumptions(z)
+
+    # *X12*
+    prems, z = make_proofstate(impE, split_prems=True)
+    z = resolve_implications(z, prems[2])
+    z = resolve_implications(z, prems[1])
+    z = resolve_implications(z, prems[0])
+    z = melt_theorem(z)
     print_proofstate(z)
     out, err = capfd.readouterr()
     assert \
         out == \
-        "ForAll: x\n" + \
-        "prem 0: Q.ForAll(Lambda(x1, Q.P(x1)))\n" + \
-        "prem 1: Q.ForAll(Lambda(x2, Implies(Q.P(x2), Q.Q(f(x2)))))\n" + \
-        "gl: Q.Q(f(x))\n"
-
-    z = sresolve_implications(z, p5, index=1)
-    print_proofstate(z)
-    out, err = capfd.readouterr()
-    assert \
-        out == \
-        "ForAll: x1\n" + \
-        "prem 0: Q.ForAll(Lambda(x2, Q.P(x2)))\n" + \
-        "prem 1: Q.ForAll(Lambda((x3, x4), Implies(Q.P(x3), PredApply(R_, x4, x1, x3))))\n" + \
-        "prem 2: Q.ForAll(Lambda(x5, Implies(Q.P(x5) & PredApply(V_, x1, x5), Q.Q(f(x5)))))\n" + \
-        "prem 3: Q.ForAll(Lambda(x6, Implies(Q.P(x6) & PredApply(R_, Apply(x_, x1, x6), x1, x6), PredApply(V_, x1, x6))))\n" + \
-        "gl: Q.Q(f(x1))\n" or \
-        out == \
-        "ForAll: x1\n" + \
-        "prem 0: Q.ForAll(Lambda(x2, Q.P(x2)))\n" + \
-        "prem 1: Q.ForAll(Lambda((x4, x3), Implies(Q.P(x4), PredApply(R_, x3, x1, x4))))\n" + \
-        "prem 2: Q.ForAll(Lambda(x5, Implies(Q.P(x5) & PredApply(V_, x1, x5), Q.Q(f(x5)))))\n" + \
-        "prem 3: Q.ForAll(Lambda(x6, Implies(Q.P(x6) & PredApply(R_, Apply(x_, x1, x6), x1, x6), PredApply(V_, x1, x6))))\n" + \
-        "gl: Q.Q(f(x1))\n"
-
+        "prem 0: U_\n" + \
+        "prem 1: Implies(U_, V_)\n" + \
+        "prem 2: Implies(V_, W_)\n" + \
+        "gl: W_\n"

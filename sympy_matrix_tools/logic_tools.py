@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.7' # Time-stamp: <2022-07-08T03:02:40Z>
+__version__ = '0.3.0' # Time-stamp: <2022-07-08T17:24:37Z>
 
 import re
 from sympy import And, Implies, Predicate, Lambda, AppliedPredicate, Wild,\
     sympify, Basic, Symbol, MatrixSymbol
+from sympy.logic.boolalg import BooleanFunction
 from sympy.unify import unify
 from .matrix_symbol import make_dummy, make_wild
 from .unif_tools import rename_bound_symbols_uniquely, construct_term
@@ -15,6 +16,22 @@ ForAll = Predicate("ForAll")
 
 def is_ForAll (z):
     return isinstance(z, AppliedPredicate) and z.function == ForAll
+
+
+class FrozenGoal (BooleanFunction):
+    """Semantically be an identity (lambda x: x)"""
+    @classmethod
+    def eval (cls, arg):
+        pass
+
+    def to_nnf (self, simplify=True):
+        return self
+
+    def to_anf (self, deep=True):
+        return self
+
+    def melt (self):
+        return self.args[0]
 
 
 def is_symbol_boolean (z):
@@ -39,7 +56,8 @@ def is_symbol_boolean (z):
 
 def and_implication_normal_form (il, free_wild=True, free_dummy=True):
     if not isinstance(il, Implies) and not is_ForAll(il):
-        return il
+        return rename_bound_symbols_uniquely(il, free_wild=free_wild,
+                                             free_dummy=free_dummy)
     prems = []
     vs = []
     while True:
@@ -71,6 +89,7 @@ def and_implication_normal_form (il, free_wild=True, free_dummy=True):
         vs = sorted(vs, key=lambda x: x.name)
         r = ForAll(Lambda(tuple(vs), r))
 
+    
     return rename_bound_symbols_uniquely(r, free_wild=free_wild,
                                          free_dummy=free_dummy)
 
@@ -360,6 +379,25 @@ def lift_wild (z, symbols, exclude=()):
                                  exclude=exclude)
 
 
+
+def make_proofstate (z, split_prems=False):
+    if split_prems:
+        z = rename_bound_symbols_uniquely(z)
+        f = z.free_symbols
+        gvs, prems, il = get_syms_prems_concl(z)
+        f = f | set(gvs)
+        d = {}
+        for v in f:
+            d[v] = make_dummy(v, v.name)
+        z = z.xreplace(d)
+        prems = [y.xreplace(d) for y in prems]
+        il = il.xreplace(d)
+        return prems, \
+            and_implication_normal_form(Implies(il, FrozenGoal(z)),
+                                        free_dummy=False)
+    return and_implication_normal_form(Implies(z, FrozenGoal(z)))
+
+
 def _unif_replace (d, inv):
     r = {}
     for k, v in d.items():
@@ -386,7 +424,7 @@ def _match_or_unify (z1, z2, exclude=()):
         yield _unif_replace(r, inv)
 
 
-def _resolve_implications (x, z, bounded=None, gvs=()):
+def _resolve_implications (x, z, bounded=None, fw=(), gvs=()):
     if bounded is None:
         bounded = {}
     lvs, xprems, xil = get_syms_prems_concl(x)
@@ -394,7 +432,7 @@ def _resolve_implications (x, z, bounded=None, gvs=()):
     zvs, zprems, zil = get_syms_prems_concl(z)
     assert not zvs
 
-    for d in _match_or_unify(xil, zil, exclude=gvs + lvs):
+    for d in _match_or_unify(xil, zil, exclude=fw + gvs + lvs):
         done = True
         for k, v in d.items():
             if k in bounded and bounded[k] & v.free_symbols:
@@ -410,7 +448,7 @@ def _resolve_implications (x, z, bounded=None, gvs=()):
             yield nzprems, d
 
 
-def resolve_implications (proofstate, z, index=None, num=0, goal=False,
+def resolve_implications (proofstate, z, index=None, num=0,
                           resolver=_resolve_implications, **kwargs):
 
     """
@@ -423,7 +461,8 @@ def resolve_implications (proofstate, z, index=None, num=0, goal=False,
 
     proofstate : an implication whose premises are subgoals and
     conclusion is the goal. Each proofstate is an ordinary theorem
-    itself.
+    itself. You can resolve a usual theorem that does not use
+    FrozenGoal.
 
     z : a theorem to be applied to the proofstate.
 
@@ -432,13 +471,11 @@ def resolve_implications (proofstate, z, index=None, num=0, goal=False,
 
     num: specifies a number to be selected or condition to match.
 
-    goal : to make the first goal, specify goal=True.
-
     Examples
     ========
 
     >>> from sympy import Symbol, Function, Predicate, Lambda
-    >>> from sympy_matrix_tools import ForAll, resolve_implications,\
+    >>> from sympy_matrix_tools import ForAll, resolve_implications,\\
     ... print_proofstate
 
     >>> x = Symbol("x")
@@ -449,22 +486,29 @@ def resolve_implications (proofstate, z, index=None, num=0, goal=False,
     >>> p2 = ForAll(Lambda(x, Implies(P(x), Q(f(x)))))
     >>> g3 = ForAll(Lambda(x, Q(f(x))))  # goal
 
-    >>> # Specifying goal=True, make g3 as
-    >>> # a proofstate of Implies(g3, g3)
-    >>> # and then resolve it with p2.
-    >>> z = resolve_implications(g3, p2, goal=True)
+    >>> # At first, make proofstate with specifying a goal.
+    >>> z = make_proofstate(g3)
     >>> z
-    Q.ForAll(Lambda(x, Implies(Q.P(x), Q.Q(f(x)))))
+    Implies(Q.ForAll(Lambda(x, Q.Q(f(x)))), FrozenGoal(Q.ForAll(Lambda(x1, Q.Q(f(x1))))))
+    >>> # FrozenGoal is semantically an identity (lambda x: x).
+    >>> # When printing, it is marked by "*".
     >>> print_proofstate(z)  # Each prem is a subgoal.
-    ForAll: x
-    prem 0: Q.P(x)
-    gl: Q.Q(f(x))
+    prem 0: Q.ForAll(Lambda(x, Q.Q(f(x))))
+    gl*: Q.ForAll(Lambda(x1, Q.Q(f(x1))))
+    >>> z = resolve_implications(z, p2)
+    >>> print_proofstate(z)
+    prem 0: Q.ForAll(Lambda(x, Q.P(x)))
+    gl*: Q.ForAll(Lambda(x1, Q.Q(f(x1))))
     >>> z = resolve_implications(z, p1)
-    >>> z
-    Q.ForAll(Lambda(x, Q.Q(f(x))))
+    >>> print_proofstate(z)
+    gl*: Q.ForAll(Lambda(x, Q.Q(f(x))))
+    >>> # To end the proof, melt the FrozenGoal.
+    >>> z = melt_theorem(z)
     >>> print_proofstate(z)
     ForAll: x
     gl: Q.Q(f(x))
+    >>> z
+    Q.ForAll(Lambda(x, Q.Q(f(x))))
 
     In this framework, Wild symbols behave like meta variables in
     Isabelle. You need to specify boolean=True when creating Wild or
@@ -478,12 +522,18 @@ def resolve_implications (proofstate, z, index=None, num=0, goal=False,
     Implies(U_ & (Implies(U_, V_)) & (Implies(V_, W_)), W_)
 
     """
-    
+
     gvs = ()
-    proofstate, z = rename_bound_symbols_uniquely([proofstate, z])
+    proofstate, z = rename_bound_symbols_uniquely([proofstate, z],
+                                                  free_dummy=False)
     z = make_outer_forall_wild(z)
     z = make_bound_symbols_wild(z)
 
+    fw = set()
+    for g in proofstate.atoms(FrozenGoal):
+        fw = fw | g.atoms(Wild)
+    fw = tuple(fw)
+    
     bounded = bound_symbols_for_free(z)
     b1 = bound_symbols_for_free(proofstate)
     for k, v in b1.items():
@@ -491,13 +541,8 @@ def resolve_implications (proofstate, z, index=None, num=0, goal=False,
             bounded[k] = set()
         bounded[k] = bounded[k] | v
 
-    gvs, proofstate = get_forall_symbols(proofstate)
-    if goal:
-        prems = [proofstate]
-        il = proofstate
-    else:
-        vs, prems, il = get_syms_prems_concl(proofstate)
-        assert not vs
+    gvs, prems, il = get_syms_prems_concl(proofstate)
+
     icond, index = separate_cond_num(index)
     if index is not None and index >= len(prems):
         # raise ValueError("No premise of the index.")
@@ -505,13 +550,14 @@ def resolve_implications (proofstate, z, index=None, num=0, goal=False,
     econd, num = separate_cond_num(num)
     if econd is not None and num is None:
         num = 0
+
     for i, x in enumerate(prems):
         if icond is None or formula_match(icond, x):
             if isinstance(index, int):
                 if index != 0:
                     index -= 1
                     continue
-        for r, d in resolver(x, z, bounded=bounded, gvs=gvs, **kwargs):
+        for r, d in resolver(x, z, bounded=bounded, fw=fw, gvs=gvs, **kwargs):
             nprems = [y.xreplace(d) for y in prems]
             nil = il.xreplace(d)
             nprems = nprems[0:i] + r + nprems[i+1:]
@@ -521,7 +567,7 @@ def resolve_implications (proofstate, z, index=None, num=0, goal=False,
                 r = nil
             if gvs:
                 r = ForAll(Lambda(gvs, r))
-            r = and_implication_normal_form(r)
+            r = and_implication_normal_form(r, free_dummy=False)
             if econd is None or formula_match(econd, r):
                 if isinstance(num, int):
                     if num != 0:
@@ -531,7 +577,7 @@ def resolve_implications (proofstate, z, index=None, num=0, goal=False,
     return None
 
 
-def _eresolve_implications (x, z, bounded=None, gvs=(), elim_index=0,
+def _eresolve_implications (x, z, bounded=None, fw=(), gvs=(), elim_index=0,
                             elim=True):
     if bounded is None:
         bounded = {}
@@ -544,12 +590,12 @@ def _eresolve_implications (x, z, bounded=None, gvs=(), elim_index=0,
         return
 
     for i, u in enumerate(xprems):
-        for d1 in _match_or_unify(u, zprems[elim_index], exclude=gvs + lvs):
+        for d1 in _match_or_unify(u, zprems[elim_index], exclude=fw + gvs + lvs):
             nxprems = [y.xreplace(d1) for y in xprems]
             nzprems = [y.xreplace(d1) for y in zprems]
             nxil = xil.xreplace(d1)
             nzil = zil.xreplace(d1)
-            for d2 in _match_or_unify(nxil, nzil, exclude=gvs + lvs):
+            for d2 in _match_or_unify(nxil, nzil, exclude=fw + gvs + lvs):
                 mxprems = [y.xreplace(d2) for y in nxprems]
                 mzprems = [y.xreplace(d2) for y in nzprems]
                 mzprems.pop(elim_index)
@@ -570,15 +616,15 @@ def _eresolve_implications (x, z, bounded=None, gvs=(), elim_index=0,
                     yield mzprems, d
 
 
-def eresolve_implications (proofstate, z, index=None, num=0, goal=False,
+def eresolve_implications (proofstate, z, index=None, num=0,
                            elim_index=0, elim=True):
-    return resolve_implications(proofstate, z, index=index, num=num, goal=goal,
+    return resolve_implications(proofstate, z, index=index, num=num,
                                 resolver=_eresolve_implications,
                                 elim_index=elim_index,
                                 elim=elim)
 
 
-def _forall_eresolve_implications (x, z, bounded=None, gvs=(),
+def _forall_eresolve_implications (x, z, bounded=None, fw=(), gvs=(),
                                    forall_index=None, elim=True):
     if bounded is None:
         bounded = {}
@@ -620,16 +666,16 @@ def _forall_eresolve_implications (x, z, bounded=None, gvs=(),
             yield [nx], {}
 
 
-def forall_eresolve_implications (proofstate, index=None, num=0, goal=False,
+def forall_eresolve_implications (proofstate, index=None, num=0,
                                   forall_index=None, elim=True):
     return resolve_implications(proofstate, sympify(True),
-                                index=index, num=num, goal=goal,
+                                index=index, num=num,
                                 resolver=_forall_eresolve_implications,
                                 forall_index=forall_index,
                                 elim=elim)
 
 
-def _dresolve_implications (x, z, bounded=None, gvs=(), elim_index=0,
+def _dresolve_implications (x, z, bounded=None, fw=(), gvs=(), elim_index=0,
                             elim=True):
     if bounded is None:
         bounded = {}
@@ -642,7 +688,8 @@ def _dresolve_implications (x, z, bounded=None, gvs=(), elim_index=0,
         return
 
     for i, u in enumerate(xprems):
-        for d1 in _match_or_unify(u, zprems[elim_index], exclude=gvs + lvs):
+        for d1 in _match_or_unify(u, zprems[elim_index],
+                                  exclude=fw + gvs + lvs):
             nxprems = [y.xreplace(d1) for y in xprems]
             nzprems = [y.xreplace(d1) for y in zprems]
             nxil = xil.xreplace(d1)
@@ -669,15 +716,15 @@ def _dresolve_implications (x, z, bounded=None, gvs=(), elim_index=0,
                 yield nzprems, d1
 
 
-def dresolve_implications (proofstate, z, index=None, num=0, goal=False,
+def dresolve_implications (proofstate, z, index=None, num=0,
                            elim_index=0, elim=True):
-    return resolve_implications(proofstate, z, index=index, num=num, goal=goal,
+    return resolve_implications(proofstate, z, index=index, num=num,
                                 resolver=_dresolve_implications,
                                 elim_index=elim_index,
                                 elim=elim)
 
 
-def _sresolve_implications (x, z, bounded=None, gvs=()):
+def _sresolve_implications (x, z, bounded=None, fw=(), gvs=()):
     if bounded is None:
         bounded = {}
     lvs, xprems, xil = get_syms_prems_concl(x)
@@ -702,13 +749,13 @@ def _sresolve_implications (x, z, bounded=None, gvs=()):
     yield nzprems, {}
 
 
-def sresolve_implications (proofstate, z, index=None, num=0, goal=False):
+def sresolve_implications (proofstate, z, index=None, num=0):
     """subgoal_tac"""
-    return resolve_implications(proofstate, z, index=index, num=num, goal=goal,
+    return resolve_implications(proofstate, z, index=index, num=num,
                                 resolver=_sresolve_implications)
 
 
-def _remove_trivial_assumptions (x, bounded=None, gvs=()):
+def _remove_trivial_assumptions (x, bounded=None, fw=(), gvs=()):
     if bounded is None:
         bounded = {}
     lvs, xprems, xil = get_syms_prems_concl(x)
@@ -718,7 +765,7 @@ def _remove_trivial_assumptions (x, bounded=None, gvs=()):
         z = make_outer_forall_wild(z)
         z = make_bound_symbols_wild(z)
         z = lift_wild(z, gvs + lvs, exclude=f)
-        for d in _match_or_unify(xil, z, exclude=gvs + lvs):
+        for d in _match_or_unify(xil, z, exclude=fw + gvs + lvs):
             done = True
             for k, v in d.items():
                 if k in bounded and bounded[k] & v.free_symbols:
@@ -729,7 +776,7 @@ def _remove_trivial_assumptions (x, bounded=None, gvs=()):
         zvs, zprems, zil = get_syms_prems_concl(z)
         assert not zvs
         if zprems:
-            for d in _match_or_unify(xil, zil, exclude=gvs + lvs):
+            for d in _match_or_unify(xil, zil, exclude=fw + gvs + lvs):
                 done = True
                 for k, v in d.items():
                     if k in bounded and bounded[k] & v.free_symbols:
@@ -749,6 +796,12 @@ def _remove_trivial_assumptions (x, bounded=None, gvs=()):
 def remove_trivial_assumptions (proofstate, index=None, num=None):
 
     gvs, prems, il = get_syms_prems_concl(proofstate)
+
+    fw = set()
+    for g in proofstate.atoms(FrozenGoal):
+        fw = fw | g.atoms(Wild)
+    fw = tuple(fw)
+
     l = []
     bounded = bound_symbols_for_free(proofstate)
     if not prems:
@@ -764,7 +817,8 @@ def remove_trivial_assumptions (proofstate, index=None, num=None):
                 if index != 0:
                     index -= 1
                     continue
-        for r, d in _remove_trivial_assumptions(x, bounded=bounded, gvs=gvs):
+        for r, d in _remove_trivial_assumptions(x, bounded=bounded,
+                                                fw=fw, gvs=gvs):
             nprems = [y.xreplace(d) for y in prems]
             il = il.xreplace(d)
             pre = nprems[0:i]
@@ -776,7 +830,7 @@ def remove_trivial_assumptions (proofstate, index=None, num=None):
                 r = il
             if gvs:
                 r = ForAll(Lambda(gvs, r))
-            r = and_implication_normal_form(r)
+            r = and_implication_normal_form(r, free_dummy=False)
             if econd is None or formula_match(econd, r):
                 if isinstance(num, int):
                     if num != 0:
@@ -804,6 +858,22 @@ def try_remove_trivial_assumptions (proofstate, index=None, num=None):
         proofstate = z
 
 
+def melt_theorem (z):
+    if isinstance(z, FrozenGoal):
+        z = z.melt()
+        z = rename_bound_symbols_uniquely(z, free_dummy=False)
+        d = {}
+        for v in z.free_symbols:
+            if v.is_Dummy:
+                d[v] = make_wild(v, v.name)
+        z = z.xreplace(d)
+        z = rename_bound_symbols_uniquely(z)
+        return z
+    if z.atoms(FrozenGoal):
+        raise ValueError("There remain subgoals.")
+    raise ValueError("Already melted.")
+
+
 def print_proofstate (z):
     gvs = ()
     gvs, prems, il = get_syms_prems_concl(z)
@@ -812,4 +882,7 @@ def print_proofstate (z):
     if prems:
         for i, x in enumerate(prems):
             print("prem %d:" % i, x)
-    print("gl:", il)
+    if isinstance(il, FrozenGoal):
+        print("gl*:", il.args[0])
+    else:
+        print("gl:", il)

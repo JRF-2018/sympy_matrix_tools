@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-07-07T14:46:30Z" -->
+<!-- Time-stamp: "2022-07-08T17:21:39Z" -->
 
 Some tools for SymPy matrices.
 
@@ -598,7 +598,8 @@ conditional_apply takes conditions which can also include bound variables.
 ## Usage of predicate logic (**Experimental**)
 
 I introduced ForAll as a predicate.  You can prove predicate logic
-through proofstates. Each proofstate is an ordinary theorem itself.
+through proofstates. Each proofstate is an ordinary theorem
+itself. You can resolve a usual theorem that does not use FrozenGoal.
 
 I referred to the generic proof assistant Isabelle.
 
@@ -613,22 +614,29 @@ I referred to the generic proof assistant Isabelle.
 >>> p2 = ForAll(Lambda(x, Implies(P(x), Q(f(x)))))
 >>> g3 = ForAll(Lambda(x, Q(f(x))))  # goal
 
->>> # Specifying goal=True, make g3 as
->>> # a proofstate of Implies(g3, g3)
->>> # and then resolve it with p2.
->>> z = resolve_implications(g3, p2, goal=True) 
+>>> # At first, make proofstate with specifying a goal.
+>>> z = make_proofstate(g3)
 >>> z
-Q.ForAll(Lambda(x, Implies(Q.P(x), Q.Q(f(x)))))
+Implies(Q.ForAll(Lambda(x, Q.Q(f(x)))), FrozenGoal(Q.ForAll(Lambda(x1, Q.Q(f(x1))))))
+>>> # FrozenGoal is semantically an identity (lambda x: x).
+>>> # When printing, it is marked by "*".
 >>> print_proofstate(z)  # Each prem is a subgoal.
-ForAll: x
-prem 0: Q.P(x)
-gl: Q.Q(f(x))
+prem 0: Q.ForAll(Lambda(x, Q.Q(f(x))))
+gl*: Q.ForAll(Lambda(x1, Q.Q(f(x1))))
+>>> z = resolve_implications(z, p2)
+>>> print_proofstate(z)
+prem 0: Q.ForAll(Lambda(x, Q.P(x)))
+gl*: Q.ForAll(Lambda(x1, Q.Q(f(x1))))
 >>> z = resolve_implications(z, p1)
+>>> print_proofstate(z)
+gl*: Q.ForAll(Lambda(x, Q.Q(f(x))))
+>>> # To end the proof, melt the FrozenGoal.
+>>> z = melt_theorem(z)
+>>> print_proofstate(z)  # "*" was removed from "gl".
+ForAll: x
+gl: Q.Q(f(x))
 >>> z
 Q.ForAll(Lambda(x, Q.Q(f(x))))
->>> print_proofstate(z)
-ForAll: x
-gl: Q.Q(f(x))
 
 ```
 
@@ -650,7 +658,7 @@ Implies(U_ & (Implies(U_, V_)) & (Implies(V_, W_)), W_)
 ## Tests (for developers)
 
 ```sh
-$ python -m pytest -s
+$ python -m pytest -s --doctest-modules
 $ python -m doctest README.md -v
 
 ```
@@ -663,6 +671,11 @@ The primary purpose of sympy_matrix_tools is for my personal use and experimenta
 Normally, I should write my hopes in SymPy's Issues and have them incorporated, but I can't speak English, I don't have much technical skills, and I can't handle it that much.
 
 If I am honored to have Sympy developers want to (partially) integrate these codes with the original Sympy, then feel free to do so.
+
+The update history is logged below in Japanese (Sorry).
+
+《sympy_matrix_tools を作った。 - JRF のひとこと》  
+http://jrf.cocolog-nifty.com/statuses/2022/06/post-2c0e50.html
 
 An actual usage example is on the following repository (in Japanese).
 
