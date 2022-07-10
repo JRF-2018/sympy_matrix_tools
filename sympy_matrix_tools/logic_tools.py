@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.0' # Time-stamp: <2022-07-08T17:24:37Z>
+__version__ = '0.3.1' # Time-stamp: <2022-07-10T01:31:25Z>
 
 import re
 from sympy import And, Implies, Predicate, Lambda, AppliedPredicate, Wild,\
@@ -755,6 +755,15 @@ def sresolve_implications (proofstate, z, index=None, num=0):
                                 resolver=_sresolve_implications)
 
 
+def check_most_trivial (z):
+    if z == True:
+        return True
+    if z == False:
+        return False
+    lvs, zprems, zil = get_syms_prems_concl(z)
+    return any([y for y in zprems if y == zil])
+
+
 def _remove_trivial_assumptions (x, bounded=None, fw=(), gvs=()):
     if bounded is None:
         bounded = {}
@@ -821,9 +830,8 @@ def remove_trivial_assumptions (proofstate, index=None, num=None):
                                                 fw=fw, gvs=gvs):
             nprems = [y.xreplace(d) for y in prems]
             il = il.xreplace(d)
-            pre = nprems[0:i]
-            post = nprems[i+1:]
-            nprems = pre + r + post
+            nprems = nprems[0:i] + r + nprems[i+1:]
+            nprems = [y for y in nprems if not check_most_trivial(nprems)]
             if nprems:
                 r = Implies(And(*nprems), il)
             else:
