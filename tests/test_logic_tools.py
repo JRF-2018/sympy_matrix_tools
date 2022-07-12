@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.0' # Time-stamp: <2022-07-08T10:53:10Z>
+__version__ = '0.3.2' # Time-stamp: <2022-07-12T22:51:17Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, Function, Lambda, Wild
@@ -185,11 +185,6 @@ def test_resolve_implications (capfd):
     assert \
         out == \
         "prem 0: Q.ForAll(Lambda((x1, x2), Implies(Q.ForAll(Lambda(x6, Q.P(x6))) & Q.ForAll(Lambda(x7, Implies(Q.P(x7), Q.Q(f(x7))))), PredApply(R_, x2, x1))))\n" + \
-        "prem 1: Q.ForAll(Lambda(x3, Implies(PredApply(V_, x3) & Q.ForAll(Lambda(x8, Q.P(x8))) & Q.ForAll(Lambda(x9, Implies(Q.P(x9), Q.Q(f(x9))))), Q.Q(f(x3)))))\n" + \
-        "prem 2: Q.ForAll(Lambda(x4, Implies(PredApply(R_, Apply(x_, x4), x4) & Q.ForAll(Lambda(x10, Q.P(x10))) & Q.ForAll(Lambda(x11, Implies(Q.P(x11), Q.Q(f(x11))))), PredApply(V_, x4))))\n" + \
-        "gl*: Q.ForAll(Lambda(x5, Implies(Q.ForAll(Lambda(x12, Q.P(x12))) & Q.ForAll(Lambda(x13, Implies(Q.P(x13), Q.Q(f(x13))))), Q.Q(f(x5)))))\n" or \
-        out == \
-        "prem 0: Q.ForAll(Lambda((x2, x1), Implies(Q.ForAll(Lambda(x6, Q.P(x6))) & Q.ForAll(Lambda(x7, Implies(Q.P(x7), Q.Q(f(x7))))), PredApply(R_, x1, x2))))\n" + \
         "prem 1: Q.ForAll(Lambda(x3, Implies(PredApply(V_, x3) & Q.ForAll(Lambda(x8, Q.P(x8))) & Q.ForAll(Lambda(x9, Implies(Q.P(x9), Q.Q(f(x9))))), Q.Q(f(x3)))))\n" + \
         "prem 2: Q.ForAll(Lambda(x4, Implies(PredApply(R_, Apply(x_, x4), x4) & Q.ForAll(Lambda(x10, Q.P(x10))) & Q.ForAll(Lambda(x11, Implies(Q.P(x11), Q.Q(f(x11))))), PredApply(V_, x4))))\n" + \
         "gl*: Q.ForAll(Lambda(x5, Implies(Q.ForAll(Lambda(x12, Q.P(x12))) & Q.ForAll(Lambda(x13, Implies(Q.P(x13), Q.Q(f(x13))))), Q.Q(f(x5)))))\n"

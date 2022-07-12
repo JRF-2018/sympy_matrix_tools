@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.0' # Time-stamp: <2022-07-08T17:06:49Z>
+__version__ = '0.3.2' # Time-stamp: <2022-07-12T23:06:33Z>
 
 import re
 from sympy import preorder_traversal, Eq, Equivalent, And, Implies
@@ -185,17 +185,21 @@ def _rename_bound_symbols_uniquely (term, addr, unif, exclude=()):
         return term
     inv = {}
     if hasattr(term, 'bound_symbols'):
-        b = set(term.bound_symbols)
-        f = term.free_symbols & b
+        b = term.bound_symbols
+        f = term.free_symbols & set(b)
         if unif is None:
             orig_unif = {}
             unif = {}
         else:
             orig_unif = unif
             unif = unif.copy()
+        ba = set()
         for i, x in enumerate(b):
+            if x in ba:
+                continue
             if x in exclude:
                 continue
+            ba.add(x)
             m = re.match(r'(.*[^01-9])?([01-9]+)$', x.name)
             if m:
                 xr = m.group(1) or ""
@@ -272,6 +276,9 @@ def rename_bound_symbols_uniquely (term_or_list_of_list,
             a1 = a1 | {x for x in a if x.is_Wild}
         if free_dummy:
             a1 = a1 | {x for x in a if x.is_Dummy}
+        a1 = sorted(list(a1), key=lambda x: x.dummy_index if x.is_Dummy else 0)
+        a1 = sorted(a1, key=lambda x: x.name)
+        a1 = sorted(a1, key=lambda x: 0 if x.is_Wild else 1)
         unif = {}
         for i, x in enumerate(a1):
             if x in exclude:
