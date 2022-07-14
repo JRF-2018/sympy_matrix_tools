@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.1' # Time-stamp: <2022-07-10T01:31:25Z>
+__version__ = '0.3.3' # Time-stamp: <2022-07-14T13:05:17Z>
 
 import re
 from sympy import And, Implies, Predicate, Lambda, AppliedPredicate, Wild,\
@@ -448,8 +448,8 @@ def _resolve_implications (x, z, bounded=None, fw=(), gvs=()):
             yield nzprems, d
 
 
-def resolve_implications (proofstate, z, index=None, num=0,
-                          resolver=_resolve_implications, **kwargs):
+def iter_resolve_implications (proofstate, z, index=None, num=0,
+                               resolver=_resolve_implications, **kwargs):
 
     """
     Return the next proofstate which is resolved by proofstate and z.
@@ -546,7 +546,7 @@ def resolve_implications (proofstate, z, index=None, num=0,
     icond, index = separate_cond_num(index)
     if index is not None and index >= len(prems):
         # raise ValueError("No premise of the index.")
-        return None
+        return
     econd, num = separate_cond_num(num)
     if econd is not None and num is None:
         num = 0
@@ -573,7 +573,15 @@ def resolve_implications (proofstate, z, index=None, num=0,
                     if num != 0:
                         num -= 1
                         continue
-                return r
+                yield r
+
+
+def resolve_implications (proofstate, z, index=None, num=0,
+                          resolver=_resolve_implications, **kwargs):
+    for z1 in iter_resolve_implications(proofstate, z, index=index, num=num,
+                                        resolver=resolver,
+                                        **kwargs):
+        return z1
     return None
 
 
@@ -614,6 +622,15 @@ def _eresolve_implications (x, z, bounded=None, fw=(), gvs=(), elim_index=0,
                         break
                 if done:
                     yield mzprems, d
+
+
+def iter_eresolve_implications (proofstate, z, index=None, num=0,
+                                elim_index=0, elim=True):
+    for z1 in iter_resolve_implications(proofstate, z, index=index, num=num,
+                                        resolver=_eresolve_implications,
+                                        elim_index=elim_index,
+                                        elim=elim):
+        yield z1
 
 
 def eresolve_implications (proofstate, z, index=None, num=0,
@@ -666,6 +683,16 @@ def _forall_eresolve_implications (x, z, bounded=None, fw=(), gvs=(),
             yield [nx], {}
 
 
+def iter_forall_eresolve_implications (proofstate, index=None, num=0,
+                                  forall_index=None, elim=True):
+    for z1 in iter_resolve_implications(proofstate, sympify(True),
+                                        index=index, num=num,
+                                        resolver=_forall_eresolve_implications,
+                                        forall_index=forall_index,
+                                        elim=elim):
+        yield z1
+
+
 def forall_eresolve_implications (proofstate, index=None, num=0,
                                   forall_index=None, elim=True):
     return resolve_implications(proofstate, sympify(True),
@@ -716,6 +743,15 @@ def _dresolve_implications (x, z, bounded=None, fw=(), gvs=(), elim_index=0,
                 yield nzprems, d1
 
 
+def iter_dresolve_implications (proofstate, z, index=None, num=0,
+                           elim_index=0, elim=True):
+    for z1 in iter_resolve_implications(proofstate, z, index=index, num=num,
+                                        resolver=_dresolve_implications,
+                                        elim_index=elim_index,
+                                        elim=elim):
+        yield z1
+
+
 def dresolve_implications (proofstate, z, index=None, num=0,
                            elim_index=0, elim=True):
     return resolve_implications(proofstate, z, index=index, num=num,
@@ -747,6 +783,13 @@ def _sresolve_implications (x, z, bounded=None, fw=(), gvs=()):
         nx = ForAll(Lambda(lvs, nx))
     nzprems = nzprems + [nx]
     yield nzprems, {}
+
+
+def iter_sresolve_implications (proofstate, z, index=None, num=0):
+    """subgoal_tac"""
+    for z1 in iter_resolve_implications(proofstate, z, index=index, num=num,
+                                        resolver=_sresolve_implications):
+        yield z1
 
 
 def sresolve_implications (proofstate, z, index=None, num=0):
@@ -802,7 +845,7 @@ def _remove_trivial_assumptions (x, bounded=None, fw=(), gvs=()):
                 yield nzprems, d
 
 
-def remove_trivial_assumptions (proofstate, index=None, num=None):
+def iter_remove_trivial_assumptions (proofstate, index=None, num=None):
 
     gvs, prems, il = get_syms_prems_concl(proofstate)
 
@@ -811,14 +854,14 @@ def remove_trivial_assumptions (proofstate, index=None, num=None):
         fw = fw | g.atoms(Wild)
     fw = tuple(fw)
 
-    l = []
     bounded = bound_symbols_for_free(proofstate)
     if not prems:
-        return il
+        yield il
+        return
     icond, index = separate_cond_num(index)
     if index is not None and index >= len(prems):
         # raise ValueError("No premise of the index.")
-        return None
+        return
     econd, num = separate_cond_num(num)
     for i, x in enumerate(prems):
         if icond is None or formula_match(icond, x):
@@ -844,7 +887,15 @@ def remove_trivial_assumptions (proofstate, index=None, num=None):
                     if num != 0:
                         num -= 1
                         continue
-                l.append(r)
+                yield r
+
+
+def remove_trivial_assumptions (proofstate, index=None, num=None):
+    l = []
+    for r in iter_remove_trivial_assumptions(proofstate,
+                                             index=index, num=num):
+        l.append(r)
+
     if not l:
         return None
 
@@ -856,6 +907,7 @@ def remove_trivial_assumptions (proofstate, index=None, num=None):
 
     return sorted(l, key=prems_num)[0]
 
+    
 
 def try_remove_trivial_assumptions (proofstate, index=None, num=None):
     z = proofstate

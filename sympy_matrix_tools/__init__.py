@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.2' # Time-stamp: <2022-07-12T22:45:05Z>
+__version__ = '0.3.3' # Time-stamp: <2022-07-14T12:10:52Z>
 
 import sympy
 from packaging.version import parse as parse_version
