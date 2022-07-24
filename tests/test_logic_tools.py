@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.2' # Time-stamp: <2022-07-12T22:51:17Z>
+__version__ = '0.3.4' # Time-stamp: <2022-07-24T18:05:21Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, Function, Lambda, Wild
@@ -218,3 +218,20 @@ def test_resolve_implications (capfd):
         "prem 1: Implies(U_, V_)\n" + \
         "prem 2: Implies(V_, W_)\n" + \
         "gl: W_\n"
+
+    # *X15*
+    U = Dummy("U", boolean=True)
+    V = Dummy("V", boolean=True)
+    W = Dummy("W", boolean=True)
+    g = Implies(U, W)
+    p1 = Implies(U, V)
+    p2 = Implies(V, W)
+    z = make_proofstate(g)
+    z = resolve_implications(z, p2)
+    z = eresolve_implications(z, p1)
+    assert \
+        str(melt_theorem(z)) \
+        == "Implies(U_, W_)"
+    assert \
+        str(melt_theorem(z, exclude={U, W})) \
+        == "Implies(_U, _W)"

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.3' # Time-stamp: <2022-07-14T13:05:17Z>
+__version__ = '0.3.4' # Time-stamp: <2022-07-24T17:52:18Z>
 
 import re
 from sympy import And, Implies, Predicate, Lambda, AppliedPredicate, Wild,\
@@ -382,7 +382,7 @@ def lift_wild (z, symbols, exclude=()):
 
 def make_proofstate (z, split_prems=False):
     if split_prems:
-        z = rename_bound_symbols_uniquely(z)
+        z = rename_bound_symbols_uniquely(z, free_dummy=False)
         f = z.free_symbols
         gvs, prems, il = get_syms_prems_concl(z)
         f = f | set(gvs)
@@ -395,7 +395,8 @@ def make_proofstate (z, split_prems=False):
         return prems, \
             and_implication_normal_form(Implies(il, FrozenGoal(z)),
                                         free_dummy=False)
-    return and_implication_normal_form(Implies(z, FrozenGoal(z)))
+    return and_implication_normal_form(Implies(z, FrozenGoal(z)),
+                                       free_dummy=False)
 
 
 def _unif_replace (d, inv):
@@ -918,16 +919,17 @@ def try_remove_trivial_assumptions (proofstate, index=None, num=None):
         proofstate = z
 
 
-def melt_theorem (z):
+def melt_theorem (z, exclude=()):
     if isinstance(z, FrozenGoal):
         z = z.melt()
-        z = rename_bound_symbols_uniquely(z, free_dummy=False)
+        z = rename_bound_symbols_uniquely(z, free_dummy=False,
+                                          exclude=exclude)
         d = {}
         for v in z.free_symbols:
-            if v.is_Dummy:
+            if v.is_Dummy and v not in exclude:
                 d[v] = make_wild(v, v.name)
         z = z.xreplace(d)
-        z = rename_bound_symbols_uniquely(z)
+        z = rename_bound_symbols_uniquely(z, exclude=exclude)
         return z
     if z.atoms(FrozenGoal):
         raise ValueError("There remain subgoals.")
