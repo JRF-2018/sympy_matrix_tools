@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.4' # Time-stamp: <2022-07-24T17:41:44Z>
+__version__ = '0.3.5' # Time-stamp: <2022-07-24T18:36:24Z>
 ## Language: Japanese/UTF-8
 
 from setuptools import setup, find_packages

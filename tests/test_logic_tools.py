@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.4' # Time-stamp: <2022-07-24T18:05:21Z>
+__version__ = '0.3.5' # Time-stamp: <2022-07-24T19:15:52Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, Function, Lambda, Wild
@@ -231,7 +231,4 @@ def test_resolve_implications (capfd):
     z = eresolve_implications(z, p1)
     assert \
         str(melt_theorem(z)) \
-        == "Implies(U_, W_)"
-    assert \
-        str(melt_theorem(z, exclude={U, W})) \
         == "Implies(_U, _W)"

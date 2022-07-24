@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.4' # Time-stamp: <2022-07-24T17:52:18Z>
+__version__ = '0.3.5' # Time-stamp: <2022-07-24T19:00:37Z>
 
 import re
 from sympy import And, Implies, Predicate, Lambda, AppliedPredicate, Wild,\
@@ -21,7 +21,7 @@ def is_ForAll (z):
 class FrozenGoal (BooleanFunction):
     """Semantically be an identity (lambda x: x)"""
     @classmethod
-    def eval (cls, arg):
+    def eval (cls, arg, dummy=()):
         pass
 
     def to_nnf (self, simplify=True):
@@ -29,6 +29,11 @@ class FrozenGoal (BooleanFunction):
 
     def to_anf (self, deep=True):
         return self
+
+    def wild_dummy (self):
+        if len(self.args) < 2:
+            return ()
+        return self.args[1]
 
     def melt (self):
         return self.args[0]
@@ -386,14 +391,19 @@ def make_proofstate (z, split_prems=False):
         f = z.free_symbols
         gvs, prems, il = get_syms_prems_concl(z)
         f = f | set(gvs)
+        f = [v for v in f if v.is_Wild]
+        f = sorted(f, key=lambda x: x.name)
         d = {}
+        df = []
         for v in f:
             d[v] = make_dummy(v, v.name)
+            df.append(d[v])
         z = z.xreplace(d)
         prems = [y.xreplace(d) for y in prems]
         il = il.xreplace(d)
         return prems, \
-            and_implication_normal_form(Implies(il, FrozenGoal(z)),
+            and_implication_normal_form(Implies(il, FrozenGoal(z,\
+                                                               tuple(df))),
                                         free_dummy=False)
     return and_implication_normal_form(Implies(z, FrozenGoal(z)),
                                        free_dummy=False)
@@ -921,15 +931,18 @@ def try_remove_trivial_assumptions (proofstate, index=None, num=None):
 
 def melt_theorem (z, exclude=()):
     if isinstance(z, FrozenGoal):
+        exclude = set(exclude)
+        wd = set(z.wild_dummy())
         z = z.melt()
+        prev_dummy = set([v for v in z.free_symbols if v.is_Dummy]) - wd
         z = rename_bound_symbols_uniquely(z, free_dummy=False,
                                           exclude=exclude)
         d = {}
-        for v in z.free_symbols:
+        for v in wd:
             if v.is_Dummy and v not in exclude:
                 d[v] = make_wild(v, v.name)
         z = z.xreplace(d)
-        z = rename_bound_symbols_uniquely(z, exclude=exclude)
+        z = rename_bound_symbols_uniquely(z, exclude=exclude | prev_dummy)
         return z
     if z.atoms(FrozenGoal):
         raise ValueError("There remain subgoals.")
