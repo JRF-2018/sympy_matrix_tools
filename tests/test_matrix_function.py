@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.3' # Time-stamp: <2022-06-25T07:26:24Z>
+__version__ = '0.3.6' # Time-stamp: <2022-10-11T17:02:52Z>
 
 import pytest
+import sympy
+from packaging.version import parse as parse_version
 from sympy import MatrixSymbol, Symbol, ZeroMatrix, Identity, Matrix, Dummy, Derivative, Subs, Lambda
 from sympy_matrix_tools import *
 
@@ -26,13 +28,23 @@ def test_matrix_function ():
     # assert \
     #   (Mf(2 * x1 + 1) + M1).diff(x1).doit() \
     #   == 2*Subs(Derivative(Mf(_xi_1), _xi_1), _xi_1, 2*x1 + 1)
-    with pytest.raises(AttributeError, match=r".no attribute.*shape.*"):
-        (Mf(2 * x1 + 1) + M1).diff(x1) + ZeroMatrix(N+1,N+1)
+    if parse_version(sympy.__version__) < parse_version('1.11'):
+        with pytest.raises(AttributeError, match=r".no attribute.*shape.*"):
+            (Mf(2 * x1 + 1) + M1).diff(x1) + ZeroMatrix(N+1,N+1)
+    if parse_version(sympy.__version__) >= parse_version('1.11'):
+        with pytest.raises(TypeError, match=r".*Mix of Matrix and Scalar.*"):
+            (Mf(2 * x1 + 1) + M1).diff(x1) + ZeroMatrix(N+1,N+1)
         
-    # However, it may work in practice.
-    assert \
-        (Mf(2 * x1 + 1) + M1).diff(x1).subs(Mf, Lambda(x1, x1 * M1 + M2)).doit() \
-        == 2*M1
+    # # However, it may work in practice.
+    if parse_version(sympy.__version__) < parse_version('1.11'):
+        assert \
+            (Mf(2 * x1 + 1) + M1).diff(x1).subs(Mf, Lambda(x1, x1 * M1 + M2)).doit() \
+            == 2*M1
+    if parse_version(sympy.__version__) >= parse_version('1.11'):
+        with pytest.raises(TypeError, match=r".*Mix of Matrix and Scalar.*"):
+            (Mf(2 * x1 + 1) + M1).diff(x1).subs(Mf, Lambda(x1, x1 * M1 + M2)).doit() \
+                == 2*M1
+    
     assert \
       (Mf(N) + M1).subs(Mf, Lambda(x1, x1 * M1 + M2)).subs(N, 2).doit() \
       == (3*M1 + M2).subs(N, 2)
@@ -54,7 +66,10 @@ def test_matrix_function ():
         == Matrix([[(Mf_2(5, 3))[0, 0], (Mf_2(5, 3))[0, 1], (Mf_2(5, 3))[0, 2]], [(Mf_2(5, 3))[1, 0
 ], (Mf_2(5, 3))[1, 1], (Mf_2(5, 3))[1, 2]], [(Mf_2(5, 3))[2, 0], (Mf_2(5, 3))[2, 1], (Mf_2
 (5, 3))[2, 2]]])
-    z = (Mf(N) + M1).subs(N, 2).subs(Mf_2, Lambda(x1, x1 * M1 + M2)).subs(N, 2).doit()
+    if parse_version(sympy.__version__) < parse_version('1.11'):
+        z = (Mf(N) + M1).subs(N, 2).subs(Mf_2, Lambda(x1, x1 * M1 + M2)).subs(N, 2).doit()
+    if parse_version(sympy.__version__) >= parse_version('1.11'):
+        z = (Mf(N) + M1).subs(N, 2).subs(Mf_2, Lambda(x1, x1 * M1 + M2).subs(N, 2)).doit()
     assert \
         z \
         == (M1 + 2*M1 + M2).subs(N,2)

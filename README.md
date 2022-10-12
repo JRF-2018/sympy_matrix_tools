@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-07-08T17:21:39Z" -->
+<!-- Time-stamp: "2022-10-11T20:16:57Z" -->
 
 Some tools for SymPy matrices.
 
@@ -18,10 +18,10 @@ and then:
 !pip install git+https://github.com/JRF-2018/sympy_matrix_tools
 ```
 
+However, the examples below are tested in Sympy=1.11.1.
 
-## Fix coeff
 
-This module can fix a MatMul.args_cnc error like below...
+## Define preliminary symbols
 
 ``` python
 >>> from sympy import *
@@ -29,29 +29,15 @@ This module can fix a MatMul.args_cnc error like below...
 >>> x1 = Symbol("x1")
 >>> M1 = MatrixSymbol("M1", N, N)
 >>> M2 = MatrixSymbol("M2", N, N)
->>> z = (M2 + 2 * (M2 + Identity(N)) * M1 + Identity(N))
->>> z.coeff(M1)
-Traceback (most recent call last):
-  ...
-AttributeError: 'list' object has no attribute 'difference'
 
 ```
 
-To fix it...
-
-``` python
->>> import sympy_matrix_tools
->>> sympy_matrix_tools.fix_MatMul_args_cnc()
->>> z.coeff(M1)
-2*I + 2*M2
-
-```
 
 
 ## Fix ExpectationMatrix.expand
 
 This module can fix ExpectationMatrix.expand that currently (SymPy
-version 1.10.1) works like below.
+version 1.11.1) works like below.
 
 ``` python
 >>> from sympy.stats import Expectation
@@ -80,8 +66,9 @@ To fix it...
 A*ExpectationMatrix(zeta)
 >>> Expectation(zeta.T * A).expand()
 ExpectationMatrix(zeta).T*A
->>> Expectation(epsilon * Identity(1)).expand()
-Expectation(epsilon)*I
+
+# >>> Expectation(epsilon * Identity(1)).expand()
+# Expectation(epsilon)*I  # From 1.11.1, this errs.
 
 ```
 
@@ -97,7 +84,7 @@ The original SymPy errs like below:
 >>> Lambda(M1, M1 + Identity(N)).as_dummy().doit()
 Traceback (most recent call last):
   ...
-AttributeError: 'Symbol' object has no attribute 'as_coeff_mmul'
+TypeError: Mix of Matrix and Scalar symbols
 
 ````
 
@@ -155,7 +142,7 @@ M2*M1
 >> z.args[1]
 (M1 + M2)*M1**2
 >>> partial_apply(z, z.args[1], lambda y: y.expand().doit())
-M1**3 + M2*M1**2 + (M1 + M2)*M1 + (M1 + M2)*M2 + 3*M1 + M1*M2
+(M1**3 + M2*M1**2) + (M1 + M2)*M1 + (M1 + M2)*M2 + 3*M1 + M1*M2
 
 ```
 
@@ -189,8 +176,6 @@ M1
 >>> mat_trivial_divide(z)
 (M3*M4)**(-1) + M1
 >>> z = M1 + ((M3 * M4) ** -1) * M3 * M4
->>> z
-(M3*M4)**(-1)*M3*M4 + M1
 >>> mat_trivial_divide(z)
 I + M1
 
@@ -244,16 +229,24 @@ x1*(x1**(N - 1)*M1**(N - 2) + I)*M1**2
 Mf(N) + M1
 >>> (Mf(N) + M1).subs(Mf, Lambda(x1, x1 * M1 + M2)).subs(N, 2).doit()
 3*M1 + M2
->>> # The following example seems to be able to differentiate well, but it doesn't really work.
->>> (Mf(2 * x1 + 1) + M1).diff(x1)
-2*Subs(Derivative(Mf(_xi_1), _xi_1), _xi_1, 2*x1 + 1) + 0
->>> (Mf(2 * x1 + 1) + M1).diff(x1) + ZeroMatrix(N+1,N+1)
-Traceback (most recent call last):
-  ...
-AttributeError: 'Mul' object has no attribute 'shape'
->>> # However, it may work in practice.
->>> (Mf(2 * x1 + 1) + M1).diff(x1).subs(Mf, Lambda(x1, x1 * M1 + M2)).doit()
-2*M1
+
+```
+
+From 1.11.1, Derivatives of matrices don't work.
+
+```python
+# >>> # The following example seems to be able to differentiate well, but it doesn't really work.
+# >>> (Mf(2 * x1 + 1) + M1).diff(x1)
+# 2*Subs(Derivative(Mf(_xi_1), _xi_1), _xi_1, 2*x1 + 1) + 0
+
+# >>> (Mf(2 * x1 + 1) + M1).diff(x1) + ZeroMatrix(N+1,N+1)
+# Traceback (most recent call last):
+#   ...
+# TypeError: Mix of Matrix and Scalar symbols
+
+# >>> # However, it may work in practice.
+# >>> (Mf(2 * x1 + 1) + M1).diff(x1).subs(Mf, Lambda(x1, x1 * M1 + M2)).doit()
+# 2*M1
 
 ```
 
@@ -656,6 +649,8 @@ Implies(U_ & (Implies(U_, V_)) & (Implies(V_, W_)), W_)
 
 
 ## Tests (for developers)
+
+You need SymPy >= 1.11.1.
 
 ```sh
 $ python -m pytest -s --doctest-modules

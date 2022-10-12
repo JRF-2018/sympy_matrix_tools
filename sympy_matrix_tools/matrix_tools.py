@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.0' # Time-stamp: <2022-06-19T01:27:29Z>
+__version__ = '0.3.6' # Time-stamp: <2022-10-11T17:03:53Z>
+
+import sympy
+from packaging.version import parse as parse_version
 
 from sympy import Basic, Mul, Add, MatMul, MatAdd, Integer, \
   Identity, MatPow, Pow, Inverse, Transpose
+
 
 def _MatMul_fixed_args_cnc (self, cset=False, warn=True, split_1=True):
   c = [x for x in self.args if x.is_commutative]
@@ -17,7 +21,8 @@ def _MatMul_fixed_args_cnc (self, cset=False, warn=True, split_1=True):
 
 
 def fix_MatMul_args_cnc ():
-  MatMul.args_cnc = _MatMul_fixed_args_cnc
+  if parse_version(sympy.__version__) < parse_version('1.11'):
+    MatMul.args_cnc = _MatMul_fixed_args_cnc
 
 
 def _ExpectationMatrix_fixed_expand (self, **hints):

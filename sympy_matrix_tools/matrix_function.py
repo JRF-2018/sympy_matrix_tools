@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.4' # Time-stamp: <2022-07-06T04:36:46Z>
+__version__ = '0.3.6' # Time-stamp: <2022-10-12T10:21:46Z>
 
 from sympy import Function, MatrixExpr, sympify, MatrixSymbol, Expr
 from sympy.matrices.expressions.matexpr import MatrixElement, _LeftRightArgs
@@ -161,6 +161,9 @@ class AppliedMatrixUndef (MatrixFunction, AppliedUndef):
 
 
 class UndefinedMatrixFunction (UndefinedFunction):
+    def __init__ (cls, name, n, m, **kwargs):
+        super().__init__(cls, name, **kwargs)
+        
     def __new__ (mcl, name, n, m, bases=(AppliedMatrixUndef,), __dict__=None, **kwargs):
         n, m = sympify(n), sympify(m)
 
