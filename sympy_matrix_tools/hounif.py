@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.5.0' # Time-stamp: <2026-10-22T16:34:30Z>
+__version__ = '0.6.0' # Time-stamp: <2026-10-22T16:54:53Z>
 
 """Higher-order pattern unification for SymPy terms.
 
@@ -15,8 +15,7 @@ unifier.
 """
 
 from itertools import permutations
-from sympy import Wild, Lambda, Dummy, Symbol, And, Or, Add, Mul, \
-    Equivalent, Basic
+from sympy import Wild, Lambda, Dummy, And, Or, Add, Mul, Equivalent
 from sympy.logic.boolalg import Boolean
 from .apply import Apply
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.5.0' # Time-stamp: <2026-10-22T16:34:30Z>
+__version__ = '0.6.0' # Time-stamp: <2026-10-22T16:54:53Z>
 
 """First-order logic on the minimal core of logic_tools.
 
@@ -28,7 +28,7 @@ for a binary predicate.
 from sympy import Symbol, Lambda, Implies, And, Or, Predicate
 from .apply import PredApply
 from .logic_tools import ForAll, make_proofstate, melt_theorem, auto, \
-    and_implication_normal_form, get_syms_prems_concl, formula_str
+    and_implication_normal_form, formula_str
 
 
 Exists = Predicate("Exists")
