@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.4' # Time-stamp: <2022-07-06T04:30:34Z>
+__version__ = '0.4.0' # Time-stamp: <2026-10-22T14:29:04Z>
 
 from sympy import MatrixSymbol, Wild, Dummy, sympify, \
     MatrixExpr, WildFunction, Symbol
 from sympy.core.basic import Basic, Atom
 from sympy.core.operations import AssocOp
 from sympy.core.assumptions import StdFactKB
-from sympy.matrices.matrices import MatrixKind
+from sympy.matrices.kind import MatrixKind
 from sympy.printing.str import StrPrinter
 from sympy.printing.repr import ReprPrinter
 from .matrix_function import MatrixFunction, AppliedMatrixUndef
@@ -130,11 +130,19 @@ def make_wild (z, name="x", exclude=(), properties=()):
         return MatrixWild(name, *z.shape, exclude, properties)
     if isinstance(z, Wild):
         return z.func(name, exclude=z.exclude + tuple(exclude),
-                      properties=z.properties + typle(properties),
+                      properties=z.properties + tuple(properties),
                       **z.assumptions0)
     else:
         return Wild(name, exclude=exclude, properties=properties,
                     **z.assumptions0)
+
+
+def _set_assumptions (obj, assumptions):
+    # Same as Symbol.__xnew__ of SymPy >= 1.12.
+    kb = StdFactKB(assumptions)
+    obj._assumptions = kb
+    obj._assumptions_orig = assumptions.copy()
+    obj._assumptions0 = tuple(sorted(dict(kb).items()))
 
 
 class MatrixDummy (Dummy, MatrixSymbol):
@@ -156,10 +164,7 @@ class MatrixDummy (Dummy, MatrixSymbol):
         cls._sanitize(assumptions, cls)
         obj = MatrixSymbol.__new__(cls, name, n, m)
         obj.dummy_index = dummy_index
-
-        tmp_asm_copy = assumptions.copy()
-        obj._assumptions = StdFactKB(assumptions)
-        obj._assumptions._generator = tmp_asm_copy
+        _set_assumptions(obj, assumptions)
 
         return obj
     
@@ -215,9 +220,7 @@ class MatrixWild (Wild, MatrixSymbol):
         obj.properties = tuple(properties)
 
         cls._sanitize(assumptions, cls)
-        tmp_asm_copy = assumptions.copy()
-        obj._assumptions = StdFactKB(assumptions)
-        obj._assumptions._generator = tmp_asm_copy
+        _set_assumptions(obj, assumptions)
         
         return obj
 

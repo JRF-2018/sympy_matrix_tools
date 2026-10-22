@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.6' # Time-stamp: <2022-10-11T18:33:29Z>
+__version__ = '0.4.0' # Time-stamp: <2026-10-22T14:29:04Z>
 
 import pytest
-import sympy
-from packaging.version import parse as parse_version
 from sympy import MatrixSymbol, Symbol, MatMul, Rational, Identity
 from sympy_matrix_tools import *
 
@@ -17,9 +15,6 @@ I = Identity(N)
 
 def test_fix_MatMul_args_cnc ():
     z = M2 + 2 * (M2 + Identity(N)) * M1 + Identity(N)
-    if parse_version(sympy.__version__) < parse_version('1.11'):
-        with pytest.raises(AttributeError, match=r".*list.*difference.*"):
-            z.coeff(M1)
     fix_MatMul_args_cnc()
     assert z.coeff(M1) == 2*I + 2*M2
 
@@ -144,10 +139,6 @@ def test_partial_apply ():
     assert \
         z.args[1] + z.args[2] \
         == (M1 + M2)*M1**2 + (M1 + M2)*M1
-    if parse_version(sympy.__version__) < parse_version('1.11'):
-        assert \
-            partial_apply(z, z.args[1] + z.args[2], lambda y: y.expand().doit()).doit() \
-            == (M1 + M2)*M2 + M1**2 + M1**3 + 3*M1 + M1*M2 + M2*M1**2 + M2*M1
     z2 = mat_collect(z, M2)
     assert \
         partial_apply(z2, z2.args[0], lambda y: y.expand().doit()).doit() \
@@ -223,11 +214,11 @@ def test_mixed_2 ():
         z2.args[1] \
         == (x1*x1**(N - 2))*M1**(N - 2) + I
     assert \
-        partial_apply(z2, z2.args[1], lambda y: y.expand().doit()).doit() \
-        == x1*((x1**N/x1)*M1**(N - 2) + I)*M1**2
+        partial_apply(z2, z2.args[1], mat_expand).doit() \
+        == x1*(x1**(N - 1)*M1**(N - 2) + I)*M1**2
     assert \
         mat_collect(z, x1 *  M1 ** 2, expand_pow=2, expand_inner=True) \
-        == x1*((x1**N/x1)*M1**(N - 2) + I)*M1**2
+        == x1*(x1**(N - 1)*M1**(N - 2) + I)*M1**2
     assert \
         mat_collect(z, x1 *  M1 ** 2, expand_pow={x1**N: 1, M1**N: 2}) \
         == x1*(x1**(N - 1)*M1**(N - 2) + I)*M1**2

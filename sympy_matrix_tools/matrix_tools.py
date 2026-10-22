@@ -1,28 +1,13 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.6' # Time-stamp: <2022-10-11T17:03:53Z>
-
-import sympy
-from packaging.version import parse as parse_version
+__version__ = '0.4.0' # Time-stamp: <2026-10-22T14:29:04Z>
 
 from sympy import Basic, Mul, Add, MatMul, MatAdd, Integer, \
-  Identity, MatPow, Pow, Inverse, Transpose
-
-
-def _MatMul_fixed_args_cnc (self, cset=False, warn=True, split_1=True):
-  c = [x for x in self.args if x.is_commutative]
-  nc = [x for x in self.args if not x.is_commutative]
-  if cset:
-    clen = len(c)
-    c = set(c)
-    if clen and warn and len(c) != clen:
-      raise ValueError('repeated commutative arguments: %s' %
-                       [ci for ci in c if list(self.args).count(ci) > 1])
-  return [c, nc]
+  Identity, MatPow, Pow, Inverse, Transpose, powsimp
 
 
 def fix_MatMul_args_cnc ():
-  if parse_version(sympy.__version__) < parse_version('1.11'):
-    MatMul.args_cnc = _MatMul_fixed_args_cnc
+  # MatMul.args_cnc was fixed in SymPy 1.11.  Left for compatibility.
+  pass
 
 
 def _ExpectationMatrix_fixed_expand (self, **hints):
@@ -82,6 +67,26 @@ def _ExpectationMatrix_fixed_expand (self, **hints):
 def fix_ExpectationMatrix_expand ():
   from sympy.stats import ExpectationMatrix
   ExpectationMatrix.expand = _ExpectationMatrix_fixed_expand
+
+
+def mat_expand (X, **hints):
+  """expand() that also expands and powsimp's scalar coefficients of MatMul.
+
+  MatMul.expand() of SymPy >= 1.12 leaves scalar coefficients
+  unexpanded, and x1*x1**(N - 2) is no longer combined.
+
+  >>> from sympy import Symbol, MatrixSymbol, Mul
+  >>> x1 = Symbol("x1")
+  >>> N = Symbol("N", integer=True)
+  >>> M1 = MatrixSymbol("M1", N, N)
+  >>> mat_expand(x1 * x1 ** (N - 2) * (M1 + M1 ** 2))
+  x1**(N - 1)*M1**2 + x1**(N - 1)*M1
+  """
+  X = X.expand(**hints).doit()
+  return X.replace(
+    lambda e: isinstance(e, MatMul),
+    lambda e: MatMul(*[powsimp(x.expand(**hints)) if x.is_commutative else x
+                       for x in e.args]).doit())
 
 
 def partial_apply (X, arg, applyf):
@@ -279,7 +284,7 @@ def mat_collect (X, Y, right=False, expand_pow=False, expand_inner=False):
         raise ValueError("When adding, scalar is added by a non squared matrix.")
       A = A + Add(*list(lc)) * Identity(A.rows)
     if expand_inner:
-      A = A.expand().doit()
+      A = mat_expand(A)
     if right:
       return Add(Mul(Y, A), *lnco)
     else:
@@ -287,7 +292,7 @@ def mat_collect (X, Y, right=False, expand_pow=False, expand_inner=False):
   elif lc:
     A = Add(*list(lc))
     if expand_inner:
-      A = A.expand().doit()
+      A = mat_expand(A)
     return Add(Mul(A, Y), *lnco)
   else:
     return X

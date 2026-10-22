@@ -1,10 +1,20 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.6' # Time-stamp: <2022-10-12T10:21:46Z>
+__version__ = '0.4.0' # Time-stamp: <2026-10-22T14:29:04Z>
 
-from sympy import Function, MatrixExpr, sympify, MatrixSymbol, Expr
+from sympy import Function, MatrixExpr, sympify, MatrixSymbol, Expr, \
+    Derivative, Subs, Dummy, ZeroMatrix, MatAdd, MatMul, Symbol, Tuple, \
+    Mul, Transpose, transpose
 from sympy.matrices.expressions.matexpr import MatrixElement, _LeftRightArgs
-from sympy.core.function import UndefinedFunction, Application, AppliedUndef
-from packaging.version import parse as parse_version
+from sympy.core.function import UndefinedFunction, Application, AppliedUndef, \
+    ArgumentIndexError
+from sympy.utilities.iterables import is_sequence, has_dups
+from sympy.tensor.array.array_derivatives import ArrayDerivative
+from sympy.tensor.array.expressions.array_expressions import _ArrayExpr, \
+    ZeroArray, get_rank, get_shape, _array_tensor_product, \
+    _array_contraction, _array_add
+from sympy.tensor.array.expressions.arrayexpr_derivatives import array_derive
+from sympy.tensor.array.expressions.from_matrix_to_array \
+    import convert_matrix_to_array
 
 # class MatrixFunction0 (Function, MatrixExpr):
 #     def __new__ (cls, *args, **options):
@@ -159,6 +169,12 @@ class AppliedMatrixUndef (MatrixFunction, AppliedUndef):
     def _entry (self, i, j, **kwargs):
         return MatrixElement(self, i, j)
 
+    def fdiff (self, argindex=1):
+        return _matrix_function_fdiff(self, argindex)
+
+    def _eval_derivative (self, x):
+        return _matrix_function_eval_derivative(self, x)
+
 
 class UndefinedMatrixFunction (UndefinedFunction):
     def __init__ (cls, name, n, m, **kwargs):
@@ -188,74 +204,276 @@ class UndefinedMatrixFunction (UndefinedFunction):
         return not self == other
 
 
-try:
-    from sympy.tensor.array.expressions.arrayexpr_derivatives \
-        import array_derive
+# Chain rule for MatrixFunction.
+#
+# The convention of SymPy's array_derive(expr, x) is that the indices
+# of x come first and the indices of expr follow, i.e. the shape of
+# the result is x.shape + expr.shape.  So the chain rule for
+# F(a_1, ..., a_n) is
+#
+#   dF/dx = sum_i contract(da_i/dx (x) dF/da_i)
+#
+# where da_i/dx has the indices [x, a_i], dF/da_i has [a_i, F], and
+# the indices of a_i in the middle are contracted.
+#
+# sympy_matrix_tools_chain_rule_py.py (made by Gemini) assumed the
+# opposite order, and contracted wrong indices.
 
-    @array_derive.register(MatrixFunction)
-    def _ (expr: MatrixFunction, x: Expr):
-        raise NotImplementedError()
+def _fix_matrix_mul (e):
+    # Derivative.doit may make a Mul of matrices like Mul(2, X, A, X).
+    return e.replace(lambda x: isinstance(x, Mul)
+                     and any(a.is_Matrix for a in x.args),
+                     lambda x: MatMul(*x.args).doit())
 
-    # from sympy import Subs
-    # from sympy.core.function import ArgumentIndexError
-    # from sympy.tensor.array.array_derivatives \
-    #     import ArrayDerivative
-    # from sympy.tensor.array.expressions.array_expressions import (
-    #     get_rank, _array_tensor_product, _array_diagonal, _array_add,
-    #     _array_contraction, _permute_dims, _ArrayExpr)
-    # from .matrix_symbol import make_dummy
 
-    # class ArraySubs (Subs, _ArrayExpr):
-    #     shape = property(lambda self: self.args[0].shape)
-    #     # @property
-    #     # def shape (self):
-    #     #     return (self.args[0].shape[-2], self.args[0].shape[-1])
+class MatrixDerivative (Derivative, MatrixExpr):
+    """Derivative of a matrix expression by a scalar."""
 
-    # # xxx = [(0, 4), (1, 3)]
-    # xxx = [(2, 4), (1, 3)]
+    shape = property(lambda self: self.expr.shape)
 
-    # @array_derive.register(AppliedMatrixUndef)
-    # def _ (expr: AppliedMatrixUndef, x: Expr):
-    #     def fdiff (self, argindex=1):
-    #         if not (1 <= argindex <= len(self.args)):
-    #             raise ArgumentIndexError(self, argindex)
-    #         ix = argindex - 1
-    #         A = self.args[ix]
-    #         D = make_dummy(A, 'xi_%i' % argindex, dummy_index=hash(A))
-    #         args = self.args[:ix] + (D,) + self.args[ix + 1:]
-    #         return ArraySubs(ArrayDerivative(self.func(*args), D,
-    #                                          evaluate=False), D, A)
+    def doit (self, **hints):
+        return _fix_matrix_mul(super().doit(**hints))
 
-    #     # I don't know correct algorithm and am trying plausible one.
-    #     i = 0
-    #     l = []
-    #     b = get_rank(x)
-    #     c = get_rank(expr)
-    #     for a in expr.args:
-    #         i += 1
-    #         da = array_derive(a, x)
-    #         if da.is_zero:
-    #             continue
-    #         try:
-    #             df = fdiff(expr, i)
-    #         except ArgumentIndexError:
-    #             df = Function.fdiff(self, i)
-    #         # da = _array_diagonal(da, *[(i, b + i) for i in range(b)])
-    #         df = _array_diagonal(df, *[(i, c + i) for i in range(c)])
-    #         tp = _array_tensor_product(da, df)
-    #         # tp = _array_contraction(tp, *xxx)
-    #         # tp = _array_diagonal(tp, *[(b + i, b + c + i) for i in range(c)])
-    #         tp = _array_diagonal(tp, *[(i, b + i) for i in range(b)])
-    #         l.append(tp)
-    #     # print(tp.shape, get_rank(tp))
-    #     tp = _array_add(*l)
-    #     # diag_indices = [(i, b + i, b + c + i) for i in range(b + c)]
-    #     # tp = _array_diagonal(tp, *diag_indices)
-    #     # print(tp.shape, get_rank(tp))
-    #     return tp
+    def _entry (self, i, j, **kwargs):
+        return MatrixElement(self, i, j)
 
-except ImportError:
+
+def _subs_new (cls, expr, variables, point, **assumptions):
+    # Same as Subs.__new__ except that the placeholders for matrix
+    # variables are MatrixSymbol's.  Quoted from SymPy 1.14.
+    if not is_sequence(variables, Tuple):
+        variables = [variables]
+    variables = Tuple(*variables)
+    if has_dups(variables):
+        raise ValueError("Variables appear more than once: %s" % variables)
+    point = Tuple(*(point if is_sequence(point, Tuple) else [point]))
+    if len(point) != len(variables):
+        raise ValueError('Number of point values must be the same as '
+                         'the number of variables.')
+    if not point:
+        return sympify(expr)
+    if isinstance(expr, Subs):
+        variables = expr.variables + variables
+        point = expr.point + point
+        expr = expr.expr
+    else:
+        expr = sympify(expr)
+
+    def placeholder (name, v):
+        if v.is_Matrix:
+            return MatrixSymbol(name, *v.shape)
+        return Symbol(name)
+
+    pre = "_"
+    while 1:
+        reps = [(v, placeholder(pre + str(p), v))
+                for v, p in zip(variables, point)]
+        if any(r in expr.free_symbols and r in variables
+               and placeholder(pre + str(point[variables.index(r)]), r) != r
+               for _, r in reps):
+            pre += "_"
+            continue
+        break
+
+    obj = Expr.__new__(cls, expr, variables, point)
+    obj._expr = expr.xreplace(dict(reps))
+    return obj
+
+
+def _array_derivative_doit (e, **hints):
+    # ArrayDerivative.doit uses convert_array_to_matrix, which may
+    # remove dimensions of size 1 and change the rank.
+    r = e.expr.doit(**hints)
+    for v, c in e.variable_count:
+        for i in range(c):
+            r = array_derive(convert_matrix_to_array(r), v)
+    return r
+
+
+def _subs_doit (self, **hints):
+    # Unlike Subs.doit, keep Subs while the derivatives by the
+    # variables can not be evaluated, e.g. Derivative(F(xi), xi).
+    e = self.expr
+    if hints.get('deep', True):
+        if isinstance(e, ArrayDerivative) and isinstance(self, ArraySubs):
+            e = _array_derivative_doit(e, **hints)
+        else:
+            e = _fix_matrix_mul(e.doit(**hints))
+    if any(set(d.variables) & set(self.variables)
+           for d in e.atoms(Derivative)):
+        return self.func(e, self.variables, self.point)
+    return e.subs(list(zip(self.variables, self.point)))
+
+
+class MatrixSubs (Subs, MatrixExpr):
+    """Subs of a matrix expression."""
+
+    shape = property(lambda self: self.expr.shape)
+    __new__ = _subs_new
+    doit = _subs_doit
+
+    def _entry (self, i, j, **kwargs):
+        return MatrixElement(self, i, j)
+
+    def _eval_derivative (self, s):
+        # s is a scalar.
+        e = self.expr
+        r = []
+        if e.has(s):
+            r.append(MatrixSubs(e.diff(s), self.variables, self.point))
+        for v, p in zip(self.variables, self.point):
+            dp = p.diff(s)
+            if dp == 0:
+                continue
+            if v.is_Matrix:
+                raise NotImplementedError()
+            r.append(dp * MatrixSubs(MatrixDerivative(e, v),
+                                     self.variables, self.point))
+        if not r:
+            return ZeroMatrix(*self.shape)
+        if len(r) == 1:
+            return r[0]
+        return MatAdd(*r)
+
+
+class ArraySubs (Subs, _ArrayExpr):
+    """Subs of an array expression."""
+
+    shape = property(lambda self: self.expr.shape)
+    __new__ = _subs_new
+    doit = _subs_doit
+
+
+def _matrix_function_fdiff (expr, argindex):
+    from .matrix_symbol import make_dummy
+
+    if not (1 <= argindex <= len(expr.args)):
+        raise ArgumentIndexError(expr, argindex)
+    ix = argindex - 1
+    A = expr.args[ix]
+    # For a matrix A, ArrayDerivative(F(A), A) can't be converted by
+    # convert_array_to_matrix, so ArraySubs is always used.
+    if (isinstance(A, Dummy) or (A.is_Symbol and not A.is_Matrix)) \
+       and not any(A in a.free_symbols
+                               for i, a in enumerate(expr.args) if i != ix):
+        D = A
+        e = expr
+    else:
+        D = make_dummy(A, 'xi_%i' % argindex, dummy_index=hash(A))
+        e = expr.func(*(expr.args[:ix] + (D,) + expr.args[ix + 1:]))
+    if A.is_Matrix:
+        d = ArrayDerivative(e, D, evaluate=False)
+        if D != A:
+            d = ArraySubs(d, D, A)
+    else:
+        d = MatrixDerivative(e, D, evaluate=False)
+        if D != A:
+            d = MatrixSubs(d, D, A)
+    return d
+
+
+class _DirectionDummy (Dummy):
+    """The scalar s of a directional derivative d/ds F(a + s da)|_{s=0}."""
     pass
+
+
+def _matrix_function_eval_derivative (expr, x):
+    # x is a scalar.
+    if isinstance(x, _DirectionDummy):
+        # Otherwise doit() makes a directional derivative endlessly.
+        return MatrixDerivative(expr, x, evaluate=False)
+    l = []
+    for i, a in enumerate(expr.args, start=1):
+        da = a.diff(x)
+        if da == 0 or (da.is_Matrix and da.is_ZeroMatrix):
+            continue
+        if not a.is_Matrix:
+            df = _matrix_function_fdiff(expr, i)
+            # Don't use da * df, because it calls doit().
+            l.append(df if da == 1 else MatMul(da, df))
+        else:
+            # Directional derivative: d/dx F(a) = d/ds F(a + s da)|_{s=0}.
+            s = _DirectionDummy('s_%i' % i, dummy_index=hash((a, da)))
+            # Don't use a + s * da, because it calls doit().
+            e = expr.func(*(expr.args[:i - 1] + (MatAdd(a, MatMul(s, da)),)
+                            + expr.args[i:]))
+            l.append(MatrixSubs(MatrixDerivative(e, s, evaluate=False),
+                                s, 0))
+    if not l:
+        return ZeroMatrix(*expr.shape)
+    if len(l) == 1:
+        return l[0]
+    return MatAdd(*l)
+
+
+@array_derive.register(AppliedMatrixUndef)
+def _ (expr: AppliedMatrixUndef, x: Expr):
+    # x is a matrix.
+    rx = get_rank(x)
+    rf = get_rank(expr)
+    l = []
+    for i, a in enumerate(expr.args, start=1):
+        if not a.has(x):
+            continue
+        df = _matrix_function_fdiff(expr, i)
+        if a == x:
+            l.append(df)
+            continue
+        if a.is_Matrix:
+            da = array_derive(convert_matrix_to_array(a), x)
+            ra = get_rank(a)
+            tp = _array_tensor_product(da, df)
+            tp = _array_contraction(tp, *[(rx + j, rx + ra + j)
+                                          for j in range(ra)])
+        else:
+            da = convert_matrix_to_array(a.diff(x))
+            tp = _array_tensor_product(da, convert_matrix_to_array(df))
+        l.append(tp)
+    if not l:
+        return ZeroArray(*(get_shape(x) + expr.shape))
+    return _array_add(*l)
+
+
+def mat_diff (expr, x):
+    """Differentiate expr by x.
+
+    It is the same as expr.diff(x), except that it returns the array
+    expression as is when it can't be converted to a matrix.
+
+    convert_array_to_matrix of SymPy 1.14, which expr.diff(x) uses,
+    has bugs about arrays of rank 4.  It fails for
+    (-W * phi(u)).diff(u), where phi is a MatrixFunction, and it
+    returns a wrong array for F(X * Y).diff(X).
+    """
+    if not x.is_Matrix:
+        return expr.diff(x)
+    from sympy.tensor.array.expressions.from_array_to_matrix \
+        import convert_array_to_matrix
+    r = array_derive(convert_matrix_to_array(expr), x)
+    try:
+        c = convert_array_to_matrix(r)
+    except Exception:
+        return r
+    if isinstance(c, MatrixExpr) or not hasattr(c, 'shape'):
+        return c
+    return r
+
+
+def _Transpose_fixed_eval_derivative (self, x):
+    # x is a scalar.
+    return transpose(self.arg._eval_derivative(x))
+
+
+def fix_Transpose_eval_derivative ():
+    """Fix Transpose._eval_derivative of SymPy 1.14.
+
+    The original returns the derivative of the argument without
+    transposing it.  This is called when this module is imported.
+    """
+    Transpose._eval_derivative = _Transpose_fixed_eval_derivative
+
+
+fix_Transpose_eval_derivative()
 
 
 def freeze_matrix_function (z, exclude=None):

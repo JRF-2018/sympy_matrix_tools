@@ -1,15 +1,21 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2022-10-11T20:16:57Z" -->
+<!-- Time-stamp: "2026-10-22T14:44:36Z" -->
 
 Some tools for SymPy matrices.
 
+**Status (2026-10):** sympy_matrix_tools is in maintenance mode. Version
+0.4.0 supports SymPy 1.14 and implements the chain rule for
+`MatrixFunction`. As of SymPy 1.14, SymPy still has nothing like
+`MatrixFunction` (an undefined matrix-valued function), `MatrixWild`,
+`MatSum` and so on.
+
 ## Download in Google Colab
 
-You need SymPy >= 1.10.1. With Google Colab, you should download SymPy >= 1.10.1:
+You need SymPy >= 1.14. With Google Colab, you should download SymPy >= 1.14:
 
 ```python
-!pip install "sympy>=1.10.1"
+!pip install "sympy>=1.14"
 ```
 
 and then:
@@ -18,7 +24,13 @@ and then:
 !pip install git+https://github.com/JRF-2018/sympy_matrix_tools
 ```
 
-However, the examples below are tested in Sympy=1.11.1.
+To fix the version of sympy_matrix_tools, specify a tag like below:
+
+``` python
+!pip install git+https://github.com/JRF-2018/sympy_matrix_tools@v0.4.0
+```
+
+The examples below are tested in SymPy=1.14.0.
 
 
 ## Define preliminary symbols
@@ -37,7 +49,7 @@ However, the examples below are tested in Sympy=1.11.1.
 ## Fix ExpectationMatrix.expand
 
 This module can fix ExpectationMatrix.expand that currently (SymPy
-version 1.11.1) works like below.
+version 1.14.0) works like below.
 
 ``` python
 >>> from sympy.stats import Expectation
@@ -66,9 +78,8 @@ To fix it...
 A*ExpectationMatrix(zeta)
 >>> Expectation(zeta.T * A).expand()
 ExpectationMatrix(zeta).T*A
-
-# >>> Expectation(epsilon * Identity(1)).expand()
-# Expectation(epsilon)*I  # From 1.11.1, this errs.
+>>> Expectation(epsilon * Identity(1)).expand()
+Expectation(epsilon)*I
 
 ```
 
@@ -195,6 +206,11 @@ x1*(M1 + M2) + (M1 + M2)*M1
 
 ```
 
+In SymPy 1.14, `MatMul.expand()` doesn't expand scalar coefficients
+and `x1*x1**(N - 2)` is not combined. `mat_expand` expands them and
+applies `powsimp` to them. `expand_inner=True` of `mat_collect` uses
+`mat_expand`.
+
 ```python
 >>> z = x1 ** N * M1**N + x1 * M1 ** 2
 >>> z2 = mat_collect(z, x1 *  M1 ** 2, expand_pow=2)
@@ -203,9 +219,11 @@ x1*((x1*x1**(N - 2))*M1**(N - 2) + I)*M1**2
 >>> z2.args[1]
 (x1*x1**(N - 2))*M1**(N - 2) + I
 >>> partial_apply(z2, z2.args[1], lambda y: y.expand().doit())
-x1*((x1**N/x1)*M1**(N - 2) + I)*M1**2
+x1*((x1*x1**(N - 2))*M1**(N - 2) + I)*M1**2
+>>> partial_apply(z2, z2.args[1], mat_expand)
+x1*(x1**(N - 1)*M1**(N - 2) + I)*M1**2
 >>> mat_collect(z, x1 *  M1 ** 2, expand_pow=2, expand_inner=True)
-x1*((x1**N/x1)*M1**(N - 2) + I)*M1**2
+x1*(x1**(N - 1)*M1**(N - 2) + I)*M1**2
 >>> mat_collect(z, x1 *  M1 ** 2, expand_pow={x1**N: 1, M1**N: 2})
 x1*(x1**(N - 1)*M1**(N - 2) + I)*M1**2
 
@@ -232,23 +250,82 @@ Mf(N) + M1
 
 ```
 
-From 1.11.1, Derivatives of matrices don't work.
+### Chain rule
+
+From 0.4.0, `MatrixFunction` can be differentiated by the chain rule.
+
+By a scalar:
 
 ```python
-# >>> # The following example seems to be able to differentiate well, but it doesn't really work.
-# >>> (Mf(2 * x1 + 1) + M1).diff(x1)
-# 2*Subs(Derivative(Mf(_xi_1), _xi_1), _xi_1, 2*x1 + 1) + 0
-
-# >>> (Mf(2 * x1 + 1) + M1).diff(x1) + ZeroMatrix(N+1,N+1)
-# Traceback (most recent call last):
-#   ...
-# TypeError: Mix of Matrix and Scalar symbols
-
-# >>> # However, it may work in practice.
-# >>> (Mf(2 * x1 + 1) + M1).diff(x1).subs(Mf, Lambda(x1, x1 * M1 + M2)).doit()
-# 2*M1
+>>> (Mf(2 * x1 + 1) + M1).diff(x1)
+2*Subs(Derivative(Mf(_xi_1), _xi_1), _xi_1, 2*x1 + 1) + 0
+>>> (Mf(2 * x1 + 1) + M1).diff(x1).subs(Mf, Lambda(x1, x1 * M1 + M2)).doit()
+2*M1
+>>> Mf(x1 ** 2).diff(x1).diff(x1)
+(4*x1**2)*Subs(Derivative(Mf(_xi_1), (_xi_1, 2)), _xi_1, x1**2) + 2*Subs(Derivative(Mf(_xi_1), _xi_1), _xi_1, x1**2)
 
 ```
+
+When an argument is a matrix, the derivative by a scalar is
+represented by a directional derivative: d/dx Mf(a(x)) = d/ds Mf(a(x)
++ s a'(x)) at s = 0.
+
+```python
+>>> X = MatrixSymbol("X", N + 1, N + 1)
+>>> Mf(x1 * M2).diff(x1)
+Subs(Derivative(Mf(x1*M2 + _s_1*M2), _s_1), _s_1, 0)
+>>> Mf(x1 * M2).diff(x1).subs(Mf, Lambda(X, X * M1 * X)).doit()
+(2*x1)*M2*M1*M2
+
+```
+
+```python
+>>> t = Symbol("t")
+>>> A = MatrixSymbol("A", N, N)
+>>> x = MatrixFunction("x", N, 1)
+>>> (x(t).T * A * x(t)).diff(t)
+x(t).T*A*Derivative(x(t), t) + Derivative(x(t), t).T*A*x(t)
+
+```
+
+By a matrix, the derivative is an array expression whose indices of
+the variable come first, as SymPy's `derive_by_array`. Use `mat_diff`
+rather than `.diff`, because `.diff` uses `convert_array_to_matrix`,
+which has bugs about arrays of rank 4 in SymPy 1.14:
+
+```python
+>>> Y = MatrixSymbol("Y", 2, 2)
+>>> Z = MatrixSymbol("Z", 2, 2)
+>>> B = MatrixSymbol("B", 2, 2)
+>>> F = MatrixFunction("F", 2, 2)
+>>> mat_diff(F(Y * Z), Y)
+ArrayContraction(ArrayTensorProduct(Z, I, I, Subs(Derivative(F(_xi_1), _xi_1), _xi_1, Y*Z)), (0, 5), (1, 7), (3, 6))
+>>> direct = derive_by_array((Y * Z * B * Y * Z).as_explicit(), Y.as_explicit())
+>>> (Array(mat_diff(F(Y * Z), Y).subs(F, Lambda(Y, Y * B * Y)).doit().as_explicit()) - direct).applyfunc(expand) == Array.zeros(2, 2, 2, 2)
+True
+>>> (Array(F(Y * Z).diff(Y).subs(F, Lambda(Y, Y * B * Y)).doit().as_explicit()) - direct).applyfunc(expand) == Array.zeros(2, 2, 2, 2)
+False
+
+```
+
+Remarks:
+
+  * Importing sympy_matrix_tools fixes `Transpose._eval_derivative`
+    of SymPy 1.14, which forgets to transpose: originally
+    `Transpose(t * A).diff(t)` returns `A`, not `A.T`
+    (`fix_Transpose_eval_derivative`).
+
+  * Other bugs of SymPy 1.14 that you may meet: `((t * A) **
+    2).diff(t)` and `(t ** 2 * A + t * B).diff(t, 2)` fail with "Mix of
+    Matrix and Scalar symbols". Use `X * X` instead of `X ** 2`, and
+    `.diff(t).diff(t)` instead of `.diff(t, 2)`.
+
+  * `sympy_matrix_tools_chain_rule_py.py`, which was a prototype of
+    the chain rule written by Gemini, is not used anymore. It assumed
+    the wrong index order of `array_derive`.
+
+`freeze_matrix_function` is still needed to differentiate by `x(t)`
+itself:
 
 `freeze_matrix_function`, `melt_matrix_functioin`:
 
@@ -650,13 +727,20 @@ Implies(U_ & (Implies(U_, V_)) & (Implies(V_, W_)), W_)
 
 ## Tests (for developers)
 
-You need SymPy >= 1.11.1.
+You need SymPy >= 1.14 and pytest.
 
 ```sh
 $ python -m pytest -s --doctest-modules
 $ python -m doctest README.md -v
 
 ```
+
+`pytest.ini` limits the targets of pytest to `sympy_matrix_tools`
+and `tests`.
+
+The tests of the chain rule (`tests/test_matrix_function.py`)
+substitute concrete functions for `MatrixFunction`'s and compare the
+results with the direct differentiation by `derive_by_array`.
 
 
 ## Remark
@@ -673,6 +757,7 @@ The update history is logged below in Japanese (Sorry).
 http://jrf.cocolog-nifty.com/statuses/2022/06/post-2c0e50.html
 
 An actual usage example is on the following repository (in Japanese).
+Its notebook is fixed to sympy_matrix_tools v0.4.0.
 
 《JRF-2018/economy_control: 村田安雄『動的経済システムの最適制御』の検算＆シミュレーション。》  
 https://github.com/JRF-2018/economy_control
@@ -683,6 +768,13 @@ https://github.com/JRF-2018/economy_control
 JRF ( http://jrf.cocolog-nifty.com/statuses )
 
 The author is Japanese.  I would be grateful if you could ask in Japanese.
+
+
+## Acknowledgments
+
+Version 0.4.0 (support for SymPy 1.14, the chain rule for
+`MatrixFunction`, and this README) was developed with Claude Code
+(Claude Opus 5.5, Anthropic).
 
 
 ## License
