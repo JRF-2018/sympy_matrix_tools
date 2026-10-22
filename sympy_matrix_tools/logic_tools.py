@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.5' # Time-stamp: <2022-07-24T19:00:37Z>
+__version__ = '0.5.0' # Time-stamp: <2026-10-22T16:34:30Z>
 
 import re
 from sympy import And, Implies, Predicate, Lambda, AppliedPredicate, Wild,\
-    sympify, Basic, Symbol, MatrixSymbol
+    sympify, Basic, Symbol, MatrixSymbol, Equivalent, Or, Not
 from sympy.logic.boolalg import BooleanFunction
 from sympy.unify import unify
 from .matrix_symbol import make_dummy, make_wild
 from .unif_tools import rename_bound_symbols_uniquely, construct_term
 from .apply import Apply, MatApply, PredApply
+from .hounif import ho_unify
 
 
 ForAll = Predicate("ForAll")
@@ -73,8 +74,8 @@ def and_implication_normal_form (il, free_wild=True, free_dummy=True):
              and len(il.arguments) == 1 \
              and isinstance(il.arguments[0], Lambda):
             lam = il.arguments[0]
-            lvs = lam.args[0]
-            larg = lam.args[1]
+            lvs = lam.signature
+            larg = lam.expr
             rd = {}
             for x in lvs:
                 d = make_dummy(x, x.name)
@@ -87,6 +88,20 @@ def and_implication_normal_form (il, free_wild=True, free_dummy=True):
                  for a in prems], [])
     prems = [and_implication_normal_form(x, free_wild=False,
                                          free_dummy=False) for x in prems]
+    # A premise ForAll x. (H -> A & B) is split into ForAll x. (H -> A)
+    # and ForAll x. (H -> B).
+    l = []
+    while prems:
+        x = prems.pop(0)
+        sp = _split_concl(x) if isinstance(x, (Implies, AppliedPredicate)) \
+            else None
+        if sp is None:
+            l.append(x)
+        else:
+            prems = [and_implication_normal_form(y, free_wild=False,
+                                                 free_dummy=False)
+                     for y in sp] + prems
+    prems = l
 
     r = Implies(And(*prems), il)
     vs = [x for x in vs if x in r.free_symbols]
@@ -104,8 +119,8 @@ def make_outer_forall_wild (z):
         return z
     if not len(z.arguments) == 1 or not isinstance(z.arguments[0], Lambda):
         return z
-    lvs = z.arguments[0].args[0]
-    larg = z.arguments[0].args[1]
+    lvs = z.arguments[0].signature
+    larg = z.arguments[0].expr
     d = {}
     for x in lvs:
         d[x] = make_wild(x, x.name)
@@ -139,8 +154,8 @@ def make_bound_symbols_wild (z, unif=None):
 def get_forall_symbols (z):
     vs = []
     while is_ForAll(z) and isinstance(z.arguments[0], Lambda):
-        vs.extend(list(z.arguments[0].args[0]))
-        z = z.arguments[0].args[1]
+        vs.extend(list(z.arguments[0].signature))
+        z = z.arguments[0].expr
     return tuple(vs), z
 
 
@@ -148,8 +163,8 @@ def get_syms_prems_concl (z):
     """Get ForAll symbols and premises and conclusion."""
     vs = []
     while is_ForAll(z) and isinstance(z.arguments[0], Lambda):
-        vs.extend(list(z.arguments[0].args[0]))
-        z = z.arguments[0].args[1]
+        vs.extend(list(z.arguments[0].signature))
+        z = z.arguments[0].expr
     if not isinstance(z, Implies):
         return tuple(vs), [], z
     il = z
@@ -424,15 +439,43 @@ def _match_or_unify (z1, z2, exclude=()):
         inv[d[v]] = v
     z1 = z1.xreplace(d)
     z2 = z2.xreplace(d)
-    r = z1.match(z2)
-    if r is not None:
-        yield _unif_replace(r, inv)
-    r = z2.match(z1)
-    if r is not None:
-        yield _unif_replace(r, inv)
-    w = z1.atoms(Wild) | z2.atoms(Wild)
-    for r in unify(z1, z2, variables=w):
-        yield _unif_replace(r, inv)
+    seen = []
+    def candidates ():
+        # Higher-order pattern unification first, and then the old
+        # methods of SymPy as fallback.
+        yield from ho_unify(z1, z2)
+        r = z1.match(z2)
+        if r is not None:
+            yield r
+        r = z2.match(z1)
+        if r is not None:
+            yield r
+        w = z1.atoms(Wild) | z2.atoms(Wild)
+        yield from unify(z1, z2, variables=w)
+    # Wild's in binder positions of Lambda are bound variables, not
+    # metavariables.
+    binders = set()
+    for lam in z1.atoms(Lambda) | z2.atoms(Lambda):
+        binders |= set(lam.signature)
+    def subst (z, r):
+        for i in range(10):
+            z2 = z.xreplace(r)
+            if z2 == z:
+                break
+            z = z2
+        return z
+    for r in candidates():
+        if set(r.keys()) & binders:
+            continue
+        # The fallback methods may return a non-unifier, e.g. Or(A_, B_)
+        # for Implies(A, B).
+        a, b = subst(z1, r), subst(z2, r)
+        if a != b and next(ho_unify(a, b), None) != {}:
+            continue
+        r = _unif_replace(r, inv)
+        if r not in seen:
+            seen.append(r)
+            yield r
 
 
 def _resolve_implications (x, z, bounded=None, fw=(), gvs=()):
@@ -851,8 +894,10 @@ def _remove_trivial_assumptions (x, bounded=None, fw=(), gvs=()):
                 nxprems = [y.xreplace(d) for y in xprems]
                 if nxprems:
                     nzprems = [Implies(And(*nxprems), y) for y in nzprems]
-                # if lvs:
-                #     nzprems = [ForAll(Lambda(lvs, y)) for y in nzprems]
+                # Without this, the bound variables lvs become free and
+                # can be unified with outer metavariables (unsound).
+                if lvs:
+                    nzprems = [ForAll(Lambda(lvs, y)) for y in nzprems]
                 yield nzprems, d
 
 
@@ -885,7 +930,7 @@ def iter_remove_trivial_assumptions (proofstate, index=None, num=None):
             nprems = [y.xreplace(d) for y in prems]
             il = il.xreplace(d)
             nprems = nprems[0:i] + r + nprems[i+1:]
-            nprems = [y for y in nprems if not check_most_trivial(nprems)]
+            nprems = [y for y in nprems if not check_most_trivial(y)]
             if nprems:
                 r = Implies(And(*nprems), il)
             else:
@@ -929,6 +974,126 @@ def try_remove_trivial_assumptions (proofstate, index=None, num=None):
         proofstate = z
 
 
+def _split_concl (x):
+    vs, prems, il = get_syms_prems_concl(x)
+    if isinstance(il, And):
+        cs = list(il.args)
+    elif isinstance(il, Equivalent) and len(il.args) == 2:
+        cs = [Implies(il.args[0], il.args[1]),
+              Implies(il.args[1], il.args[0])]
+    else:
+        return None
+    r = []
+    for c in cs:
+        y = Implies(And(*prems), c) if prems else c
+        if vs:
+            y = ForAll(Lambda(vs, y))
+        r.append(y)
+    return r
+
+
+def split_goals (proofstate):
+    """Split each subgoal whose conclusion is And or Equivalent into
+    subgoals.  Return None if nothing is split."""
+    gvs, prems, il = get_syms_prems_concl(proofstate)
+    nprems = []
+    done = False
+    for x in prems:
+        r = _split_concl(x)
+        if r is None:
+            nprems.append(x)
+        else:
+            nprems.extend(r)
+            done = True
+    if not done:
+        return None
+    r = Implies(And(*nprems), il)
+    if gvs:
+        r = ForAll(Lambda(gvs, r))
+    return and_implication_normal_form(r, free_dummy=False)
+
+
+def _subgoals (proofstate):
+    gvs, prems, il = get_syms_prems_concl(proofstate)
+    return prems
+
+
+class _Budget:
+    def __init__ (self, n):
+        self.n = n
+
+
+def _safe_step (proofstate, safe):
+    r = split_goals(proofstate)
+    if r is not None:
+        return r
+    for rule, elim_index in safe:
+        r = eresolve_implications(proofstate, rule, elim_index=elim_index)
+        if r is not None:
+            return r
+    return None
+
+
+def _iter_auto (proofstate, rules, depth, seen, budget, path=(), safe=()):
+    path = path + (proofstate,)
+    if not _subgoals(proofstate):
+        yield path
+        return
+    if depth <= 0 or budget.n <= 0:
+        return
+    budget.n -= 1
+    r = _safe_step(proofstate, safe)
+    if r is not None:
+        # Safe steps need no backtracking.
+        yield from _iter_auto(r, rules, depth, seen, budget, path, safe)
+        return
+    cands = []
+    for r in iter_remove_trivial_assumptions(proofstate):
+        cands.append(r)
+    for rule in rules:
+        for r in iter_resolve_implications(proofstate, rule):
+            cands.append(r)
+    l = []
+    for r in cands:
+        if r is not None and r not in seen and r not in l:
+            l.append(r)
+    l = sorted(l, key=lambda x: len(_subgoals(x)))
+    for r in l:
+        yield from _iter_auto(r, rules, depth - 1, seen | {proofstate},
+                              budget, path, safe)
+
+
+def iter_auto (proofstate, rules=(), depth=6, max_nodes=2000,
+               trace=False, safe=()):
+    """Search proofs by backtracking with iterative deepening.
+
+    Each step removes a trivial assumption or resolves a subgoal by
+    one of rules.  Yield proofstates with no subgoals (or the lists of
+    proofstates from the start if trace is True).  The search stops
+    after expanding max_nodes proofstates.
+
+    safe is a list of (rule, elim_index) of elimination rules that are
+    applied by eresolve_implications without backtracking, e.g. the
+    elimination of Exists or Or in assumptions.
+    """
+    budget = _Budget(max_nodes)
+    for d in range(1, depth + 1):
+        for path in _iter_auto(proofstate, rules, d, frozenset(), budget,
+                               safe=safe):
+            yield list(path) if trace else path[-1]
+        if budget.n <= 0:
+            return
+
+
+def auto (proofstate, rules=(), depth=6, max_nodes=2000, trace=False,
+          safe=()):
+    """Return the first result of iter_auto, or None."""
+    for r in iter_auto(proofstate, rules=rules, depth=depth,
+                       max_nodes=max_nodes, trace=trace, safe=safe):
+        return r
+    return None
+
+
 def melt_theorem (z, exclude=()):
     if isinstance(z, FrozenGoal):
         exclude = set(exclude)
@@ -949,15 +1114,90 @@ def melt_theorem (z, exclude=()):
     raise ValueError("Already melted.")
 
 
-def print_proofstate (z):
+def _binder_str (sym, lam):
+    vs = " ".join(_term_str(v) for v in lam.signature)
+    return "%s%s. %s" % (sym, vs, formula_str(lam.expr))
+
+
+def _term_str (z):
+    if isinstance(z, Wild):
+        return "?" + z.name
+    if isinstance(z, Apply) and not isinstance(z, MatApply):
+        f = z.function
+        fs = _term_str(f) if isinstance(f, (Wild, Symbol)) else \
+            "(%s)" % f
+        return "%s(%s)" % (fs, ", ".join(_term_str(a)
+                                          for a in z.arguments))
+    return str(z)
+
+
+def _paren (z):
+    s = formula_str(z)
+    if isinstance(z, (Implies, And, Or, Equivalent)) or is_ForAll(z) \
+       or (isinstance(z, AppliedPredicate)
+           and str(z.function.name) == "Exists"):
+        if not (isinstance(z, Implies) and z.args[-1] == _bot()):
+            return "(%s)" % s
+    return s
+
+
+def _bot ():
+    return Symbol("Bot", boolean=True)
+
+
+def formula_str (z):
+    """Show a formula in the logical notation.
+
+    >>> from sympy import Symbol, Lambda, Implies, And, Wild
+    >>> from sympy_matrix_tools import PredApply
+    >>> x = Symbol("x")
+    >>> P = Symbol("P")
+    >>> Q = Symbol("Q")
+    >>> R = Wild("R")
+    >>> formula_str(ForAll(Lambda(x, Implies(And(PredApply(P, x),
+    ...                                          PredApply(R, x)),
+    ...                                      PredApply(Q, x)))))
+    '∀x. (P(x) ∧ ?R(x)) → Q(x)'
+    """
+    if is_ForAll(z) and isinstance(z.arguments[0], Lambda):
+        return _binder_str("∀", z.arguments[0])
+    if isinstance(z, AppliedPredicate) and str(z.function.name) == "Exists" \
+       and isinstance(z.arguments[0], Lambda):
+        return _binder_str("∃", z.arguments[0])
+    if isinstance(z, FrozenGoal):
+        return "*" + _paren(z.args[0])
+    if isinstance(z, Implies):
+        if z.args[-1] == _bot():
+            return "¬" + _paren(z.args[0])
+        return " → ".join(_paren(a) for a in z.args)
+    if isinstance(z, And):
+        return " ∧ ".join(_paren(a) for a in z.args)
+    if isinstance(z, Or):
+        return " ∨ ".join(_paren(a) for a in z.args)
+    if isinstance(z, Equivalent):
+        return " ↔ ".join(_paren(a) for a in z.args)
+    if isinstance(z, Not):
+        return "¬" + _paren(z.args[0])
+    if z == _bot():
+        return "⊥"
+    if isinstance(z, AppliedPredicate) and not isinstance(z, PredApply):
+        return "%s(%s)" % (str(z.function.name),
+                           ", ".join(_term_str(a) for a in z.arguments))
+    return _term_str(z)
+
+
+def print_proofstate (z, pretty=False):
+    """Print a proofstate.  If pretty is True, formulas are shown by
+    formula_str."""
+    show = formula_str if pretty else (lambda x: x)
     gvs = ()
     gvs, prems, il = get_syms_prems_concl(z)
     if gvs:
         print("ForAll:", *gvs)
     if prems:
         for i, x in enumerate(prems):
-            print("prem %d:" % i, x)
+            print("prem %d:" % i, show(x))
     if isinstance(il, FrozenGoal):
-        print("gl*:", il.args[0])
+        print("gl*:", show(il.args[0]))
     else:
-        print("gl:", il)
+        print("gl:", show(il))
