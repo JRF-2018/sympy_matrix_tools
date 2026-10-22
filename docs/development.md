@@ -29,6 +29,11 @@ is already open; when they pass again, it closes the issue with a
 comment.  GitHub disables scheduled workflows of a repository without
 activity for 60 days; enable it again in the "Actions" tab.
 
+To try the path that opens an issue, run the workflow by hand with
+"force_failure" checked: the tests fail on purpose and an issue is
+opened (it says that the failure was forced).  A following normal run
+closes the issue.
+
 
 ## Conventions
 

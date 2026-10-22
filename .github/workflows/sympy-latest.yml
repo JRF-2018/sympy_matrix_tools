@@ -5,6 +5,9 @@
 # tests pass again, the open issue is closed with a comment.
 #
 # It can also be run by hand from the "Actions" tab ("Run workflow").
+# A manual run with "force_failure" checked makes the tests fail on
+# purpose, to try the path that opens an issue; a following normal run
+# closes the issue.
 # To stop it, disable the workflow in the "Actions" tab or delete this
 # file.  Note that GitHub disables scheduled workflows of a repository
 # without activity for 60 days; enable it again in the "Actions" tab.
@@ -15,6 +18,11 @@ on:
   schedule:
     - cron: "0 3 * * 1"    # every Monday at 03:00 UTC
   workflow_dispatch:
+    inputs:
+      force_failure:
+        description: "Fail on purpose to try opening an issue"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,14 +47,21 @@ jobs:
       - name: Run the tests
         id: tests
         continue-on-error: true
+        env:
+          FORCE_FAILURE: ${{ inputs.force_failure }}
         run: |
           set -o pipefail
           python -m pytest -q 2>&1 | tee pytest.log
+          if [ "$FORCE_FAILURE" = "true" ]; then
+            echo "Failed on purpose (force_failure) to try the issue path." | tee -a pytest.log
+            exit 1
+          fi
 
       - name: Open an issue if the tests failed
         if: steps.tests.outcome == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
+          FORCE_FAILURE: ${{ inputs.force_failure }}
         run: |
           open=$(gh issue list --label sympy-latest --state open --json number --jq 'length')
           if [ "$open" != "0" ]; then
@@ -57,6 +72,10 @@ jobs:
             --description "Tests fail with the latest SymPy" --force
           {
             echo "The scheduled tests failed with $(cat sympy_version.txt)."
+            if [ "$FORCE_FAILURE" = "true" ]; then
+              echo
+              echo "**This failure was forced on purpose (force_failure) to try this path.**"
+            fi
             echo
             echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             echo

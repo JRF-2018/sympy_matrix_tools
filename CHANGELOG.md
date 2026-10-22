@@ -5,6 +5,13 @@ All notable changes are recorded here.  The format is based on
 tagged as `vX.Y.Z` on GitHub.
 
 
+## [Unreleased]
+
+### Added
+- The weekly workflow has a manual input `force_failure`, which makes
+  the tests fail on purpose to try the path that opens an issue.
+
+
 ## [0.8.0] - 2026-10-23
 
 ### Added
