@@ -5,6 +5,18 @@ All notable changes are recorded here.  The format is based on
 tagged as `vX.Y.Z` on GitHub.
 
 
+## [0.7.1] - 2026-10-23
+
+### Changed
+- The documents in `docs/` explain in words what each function and
+  class is for (MatrixWild, MatrixDummy, Apply, the steps of the
+  proofstates, the parameters of `Sum_step_forward`, ...), with tables
+  of the main names.
+
+### Fixed
+- `make_wild` raised `TypeError` for a `MatrixSymbol`.
+
+
 ## [0.7.0] - 2026-10-23
 
 ### Added
@@ -108,6 +120,7 @@ http://jrf.cocolog-nifty.com/statuses/2022/06/post-2c0e50.html .
 - 0.0.x (2022-04): the first versions: `mat_coeff`, `mat_collect`,
   `mat_divide` and the fix of `MatMul.args_cnc`.
 
+[0.7.1]: https://github.com/JRF-2018/sympy_matrix_tools/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/JRF-2018/sympy_matrix_tools/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/JRF-2018/sympy_matrix_tools/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/JRF-2018/sympy_matrix_tools/compare/v0.4.0...v0.5.0

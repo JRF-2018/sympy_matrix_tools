@@ -2,27 +2,63 @@
 
 [Back to README](../README.md)
 
+**Experimental.**
+
+The proofstates of [logic.md](logic.md) have only `ForAll`, `Implies`
+and `And` as connectives.  `sympy_matrix_tools.fol` builds the
+classical first-order logic on this minimal core, as in higher-order
+logic: the other connectives are **defined** from `ForAll` and
+`Implies`, and their rules are **proved** as theorems from the
+definitions, not assumed.  This shows that the core is enough for
+first-order logic, and tests the soundness of the core and of the
+unification.
+
+It is not meant to replace Lean or Isabelle; the trusted base includes
+SymPy's automatic evaluation.
+
 ```python
 >>> from sympy import *
 >>> from sympy_matrix_tools import *
+>>> from sympy_matrix_tools.fol import *
 
 ```
 
 
-**Experimental.**
+## Writing formulas
 
-From 0.5.0, `sympy_matrix_tools.fol` builds the first-order logic on
-the minimal core of the predicate logic above (ForAll, Implies and
-And). The other connectives are defined impredicatively as in
-higher-order logic, and their rules are proved as theorems:
+| Formula | Written as |
+|---|---|
+| ∀x. φ | `ForAll(Lambda(x, φ))` |
+| ∃x. φ | `Exists(Lambda(x, φ))` |
+| φ → ψ, φ ∧ ψ, φ ∨ ψ | `Implies(φ, ψ)`, `And(φ, ψ)`, `Or(φ, ψ)` |
+| ⊥, ¬φ | `Bot`, `neg(φ)` (which is `Implies(φ, Bot)`) |
+| P(x), R(x, y) | `PredApply(P, x)`, `PredApply(R, x, y)` with symbols `P`, `R` |
+
+A predicate is a plain symbol applied by `PredApply`, because SymPy's
+`Predicate` takes only one argument and cannot be a variable.  A
+symbol that stands for a formula needs `boolean=True`.
+`formula_str(φ)` shows a formula in the logical notation.
+
+SymPy's `false` and `Not` are not used for ⊥ and ¬, because SymPy
+evaluates `Implies(A, false)` to `~A` at once.  SymPy's `Or` is used;
+its automatic simplification is classically sound.
+
+
+## The theory
+
+The definitions are given as pairs of axioms (fold and unfold):
 
   * `Exists(Lambda(x, P(x)))` == ∀R. (∀x. P(x) → R) → R
-  * `A | B` == ∀R. (A → R) ∧ (B → R) → R
-  * `Bot` == ∀R. R, and `neg(A)` == A → Bot
-  * The classical logic is given by the axiom `ccontr`: ¬¬A → A.
+    (`ex_fold`, `ex_unfold`)
+  * `A | B` == ∀R. (A → R) ∧ (B → R) → R (`or_fold`, `or_unfold`)
+  * `Bot` == ∀R. R (`bot_unfold`)
+
+The classical logic is given by the axiom `ccontr`: ¬¬A → A.  These are
+listed in `AXIOMS`.  The usual rules are theorems proved from them
+(`THEOREMS`): `exI`, `exE`, `disjI1`, `disjI2`, `disjE`, `botE` and
+`excluded_middle`.  `verify()` runs the proof of a theorem.
 
 ```python
->>> from sympy_matrix_tools.fol import *
 >>> for th in [ex_fold, ex_unfold, ccontr, exI, exE, excluded_middle]:
 ...     print(th)
 axiom ex_fold: ∀P. (∀R. (∀x. P(x) → R) → R) → (∃y. P(y))
@@ -36,13 +72,27 @@ True
 
 ```
 
-Predicates are symbols applied by `PredApply`, so that `P(x, y)` is
-written as `PredApply(P, x, y)`. A theorem is proved by the tactic
-`auto`, which searches proofs by backtracking with iterative
-deepening. It uses the higher-order pattern unification `ho_unify`
-and applies the eliminations of ∃ and ∨ in assumptions (`SAFE`)
-without backtracking. `formula_str` and `print_proofstate(...,
-pretty=True)` show formulas in the logical notation.
+
+## Stating and proving a theorem
+
+`Theorem(name, statement, proof)` is a named statement with its proof,
+where `proof` is a function from the initial proofstate to a
+proofstate without subgoals.  `verify()` runs the proof, checks that
+it proves the statement, and raises `ValueError` otherwise.  A proof
+must use only the theorems proved before it.
+
+`by_auto(*rules, depth=6, max_nodes=2000, safe=())` makes a proof by
+the tactic `auto` (see [logic.md](logic.md)):
+
+  * `rules` are the theorems that `auto` may apply backward, e.g.
+    `exI` to prove an `Exists`.
+  * `safe` is a list of `(rule, kind)` of elimination rules that are
+    applied to assumptions without backtracking.  `SAFE` contains the
+    eliminations of `Exists` and `Or` (`exE` and `disjE`); pass
+    `safe=SAFE` in most proofs.
+  * `depth` limits the length of a proof, and `max_nodes` the number
+    of proofstates explored.  A proof search that fails may take time
+    until it reaches the limits.
 
 ```python
 >>> x, y = symbols("x y")
@@ -54,6 +104,14 @@ pretty=True)` show formulas in the logical notation.
 >>> th = Theorem("ex_all_swap", g, by_auto(exI, safe=SAFE))
 >>> th.verify()
 True
+
+```
+
+The proof found by `auto` can be shown step by step.  Each `prem` is a
+subgoal, `gl*` is the goal, and `?x` is a metavariable, which depends
+on the bound variables in its arguments.
+
+```python
 >>> path = auto(make_proofstate(th.statement), [exI.statement],
 ...             safe=[(r.statement, i) for r, i in SAFE], trace=True)
 >>> for z in path:
@@ -73,9 +131,12 @@ gl*: ∀y. (∃x. ∀y1. P(x, y1)) → (∃x1. P(x1, y))
 
 ```
 
-The classical drinker paradox is also provable. The witness of the
-outer ∃ remains a metavariable, which means that the domain is not
-empty, as usual.
+
+## A classical theorem
+
+The drinker paradox ∃x. (D(x) → ∀y. D(y)) needs the classical logic.
+The witness of the outer ∃ remains a metavariable, which means that
+the domain is not empty, as usual in first-order logic.
 
 ```python
 >>> D = Symbol("D")
@@ -89,16 +150,19 @@ True
 
 ```
 
-See `tests/test_fol.py` for more examples and non-theorems that are
-rejected.
+`tests/test_fol.py` proves more theorems (the syllogism, distributions
+of ∃ over ∨ and of ∀ over ∧, ¬∃ ↔ ∀¬, De Morgan, Peirce's law, ¬∀ →
+∃¬) and checks that non-theorems such as ∀y∃x R(x, y) → ∃x∀y R(x, y)
+are rejected.  See also
+[examples/first_order_logic.ipynb](../examples/first_order_logic.ipynb).
 
-Remarks:
 
-  * SymPy's `false` and `Not` are not used for ⊥ and ¬, because SymPy
-    evaluates `Implies(A, false)` to `~A` at once. SymPy's `Or` is
-    used; its automatic simplification is classically sound.
+## Remarks
+
   * The trusted base includes SymPy's automatic evaluation, e.g.
     `Implies(A, A)` is `True` at once.
+  * `auto` is not complete; a long proof may need larger `depth` and
+    `max_nodes`.  A proof step takes about 0.1 seconds.
   * In 0.5.0, an unsound behavior of `remove_trivial_assumptions` was
     fixed: bound variables of a premise were dropped and could be
     unified with outer metavariables.

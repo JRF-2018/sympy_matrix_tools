@@ -6,7 +6,7 @@ fix_Basic_MatrixSymbol_about_dummy.
 
 See docs/wild_apply.md.
 """
-__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
+__version__ = '0.7.1' # Time-stamp: <2026-10-22T18:04:40Z>
 
 from sympy import MatrixSymbol, Wild, Dummy, sympify, \
     MatrixExpr, WildFunction, Symbol
@@ -131,10 +131,11 @@ def make_dummy (expr, name="x", dummy_index=None):
 def make_wild (z, name="x", exclude=(), properties=()):
     if hasattr(z, 'as_wild'):
         return z.as_wild(name, exclude, properties)
-    if not z.is_Symbol:
-        raise TypeError("%s is not a Symbol." % str(z))
+    # MatrixSymbol.is_Symbol is False.
     if isinstance(z, MatrixSymbol):
         return MatrixWild(name, *z.shape, exclude, properties)
+    if not z.is_Symbol:
+        raise TypeError("%s is not a Symbol." % str(z))
     if isinstance(z, Wild):
         return z.func(name, exclude=z.exclude + tuple(exclude),
                       properties=z.properties + tuple(properties),

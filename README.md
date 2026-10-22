@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2026-10-22T17:31:56Z" -->
+<!-- Time-stamp: "2026-10-22T18:04:40Z" -->
 
 Tools for symbolic matrix calculus and checked derivations with
 [SymPy](https://www.sympy.org/).
@@ -37,7 +37,7 @@ pip install git+https://github.com/JRF-2018/sympy_matrix_tools
 ```
 
 In Google Colab, put `!` before `pip`. To fix the version, specify a
-tag such as `...sympy_matrix_tools@v0.7.0`.
+tag such as `...sympy_matrix_tools@v0.7.1`.
 
 
 ## Quick tour

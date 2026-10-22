@@ -11,9 +11,11 @@
 
 **Experimental.**
 
-From 0.6.0, `sympy_matrix_tools.derivation` provides `Derivation`, a
-ledger of a derivation. It is not a theorem prover. It records why
-each step is believed and checks the steps numerically:
+When a formula is derived by hand, by an AI or with a CAS, a wrong
+step is easy to make and hard to find.  `sympy_matrix_tools.derivation`
+provides `Derivation`, a ledger of a derivation.  It is not a theorem
+prover: it records why each step is believed, and checks every step
+with random values, so that a wrong step is found at once.
 
   * Each step is justified by `cas(...)` (a computation by SymPy),
     `rule(name)` (a rewrite by a named hypothesis, definition or
@@ -27,6 +29,28 @@ each step is believed and checks the steps numerically:
     human, an AI or a buggy CAS.
   * `solve_linear` records the invertibility it needs as an
     obligation, which is discharged by a hypothesis or left open.
+
+| Name | Purpose |
+|---|---|
+| `Derivation(title)` | a new ledger |
+| `d.hypothesis(prop, name)` | add a hypothesis: an `Eq`, or a predicate such as `Q.invertible(K)` |
+| `d.define(symbol, expr, name)` | define `symbol` as an abbreviation of `expr` |
+| `d.calc(name, start, *steps)` | derive `start = last` by a chain of equalities; each step is `(expr, justification, ...)` or a bare `expr` |
+| `cas(func, *args)` | a justification: `func(previous, *args)`, or a method name such as `"doit"` or `"expand"` |
+| `rule(name)` | a justification: rewrite by the named fact, in either direction |
+| `d.solve_linear(name, fact_name, x)` | derive `x = -K**-1*c` from the fact `K*x + c = 0`, with the obligation that `K` is invertible |
+| `d.alias(expr, name)` | show `expr` as `name` in the reports (only for display) |
+| `d.check(trials=3, seed=0)` | check every step numerically; return `True` if no failure is found |
+| `d.report()`, `d.summary()` | a text report, and the counts of steps, assertions, failures and open obligations |
+| `Grad(f, x)` | the unevaluated gradient of a scalar `f` by a matrix `x` (`doit()` computes it) |
+
+Hypotheses of symmetry (`Eq(X.T, X)` or `Q.symmetric(X)`), positive
+definiteness (`Q.positive_definite(X)`) and invertibility
+(`Q.invertible(expr)`) are respected when random values are generated,
+and definitions are computed from the other values.  Other hypotheses
+(such as a first-order condition) are constraints that random values
+do not satisfy, so the steps that use them are not checked
+numerically.
 
 The following derives the optimal control of a one-period
 linear-quadratic problem (see

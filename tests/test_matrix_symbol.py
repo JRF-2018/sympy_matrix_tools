@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.3' # Time-stamp: <2022-06-24T14:07:28Z>
+__version__ = '0.7.1' # Time-stamp: <2026-10-22T18:04:40Z>
 
 import pytest
 from sympy import MatrixSymbol, Symbol, Function, Predicate, \
@@ -205,3 +205,14 @@ def test_as_dummy ():
     assert \
         str(x.as_dummy()) \
         == "_x"
+
+
+def test_make_wild_dummy_matrix ():
+    N = Symbol("N")
+    M1 = MatrixSymbol("M1", N, N)
+    w = make_wild(M1, "X")
+    assert isinstance(w, MatrixWild) and w.shape == (N, N)
+    d = make_dummy(M1, "X")
+    assert isinstance(d, MatrixDummy) and d.shape == (N, N)
+    assert make_wild(Symbol("t", real=True), "s").is_real
+

@@ -2,17 +2,24 @@
 
 [Back to README](../README.md)
 
+This library works around some bugs and limitations of SymPy 1.14.
+Most of them are handled inside the functions of this library, but
+some are fixed by replacing methods of SymPy's classes ("monkey
+patching").  Such a fix changes SymPy globally, for all code in the
+process:
+
+  * `fix_Transpose_eval_derivative()` is applied when
+    sympy_matrix_tools is imported, because the chain rule needs it.
+  * `fix_ExpectationMatrix_expand()` and
+    `fix_Basic_MatrixSymbol_about_dummy()` are applied only when you
+    call them.
+
+The list of the known bugs of SymPy 1.14 and their workarounds is at
+the end of this document.
+
 ```python
 >>> from sympy import *
 >>> from sympy_matrix_tools import *
-
-```
-
-
-## Define preliminary symbols
-
-``` python
->>> from sympy import *
 >>> N = Symbol("N", integer=True)
 >>> x1 = Symbol("x1")
 >>> M1 = MatrixSymbol("M1", N, N)
@@ -23,8 +30,10 @@
 
 ## Fix ExpectationMatrix.expand
 
-This module can fix ExpectationMatrix.expand that currently (SymPy
-version 1.14.0) works like below (not tested, because the fix changes
+`Expectation(...).expand()` of `sympy.stats` does not take constant
+matrices out of the expectation of a product with a random matrix in
+some cases.  `fix_ExpectationMatrix_expand()` fixes it.  In SymPy
+1.14.0, it works like below (not tested, because the fix changes
 SymPy globally):
 
 ``` python
@@ -57,8 +66,12 @@ Expectation(epsilon)*I
 
 ## Fix Basic and MatrixSymbol about dummy symbols
 
-If you use logical tools of this package, you should fix Basic and
-MatrixSymbol about dummy symbols.
+SymPy's `as_dummy`, `dummy_eq` and `canonical_variables` replace bound
+variables by scalar `Dummy`'s, which breaks expressions that bind a
+matrix, such as `Lambda(M1, M1 + Identity(N))`.
+`fix_Basic_MatrixSymbol_about_dummy()` makes them use `MatrixDummy`
+for matrices (see [wild_apply.md](wild_apply.md)).  If you use the
+logic tools of this package with matrices, you should apply it.
 
 The original SymPy errs like below (not tested, because the fix
 changes SymPy globally):
