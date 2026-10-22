@@ -243,7 +243,8 @@ Each `*_implications` function has an `iter_*` version that yields all
 the results, and takes `index` (which subgoal) and `num` (which
 result); they may be numbers or conditions such as a type or a
 predicate (see `formula_match`).  `print_proofstate(ps, pretty=True)`
-and `formula_str` show formulas in the logical notation.
+and `formula_str` show formulas in the logical notation, and
+`parse_formula` reads that notation back (see [fol.md](fol.md)).
 
 ```python
 >>> x = Symbol("x")

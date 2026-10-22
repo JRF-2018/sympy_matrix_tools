@@ -1,0 +1,85 @@
+# Test sympy_matrix_tools with the latest SymPy every week.
+#
+# If the tests fail, an issue labeled "sympy-latest" is opened, unless
+# such an issue is already open (so that it does not repeat).  When the
+# tests pass again, the open issue is closed with a comment.
+#
+# It can also be run by hand from the "Actions" tab ("Run workflow").
+# To stop it, disable the workflow in the "Actions" tab or delete this
+# file.  Note that GitHub disables scheduled workflows of a repository
+# without activity for 60 days; enable it again in the "Actions" tab.
+
+name: Test with the latest SymPy
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"    # every Monday at 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the latest SymPy
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade sympy pytest
+          python -c "import sympy; print('SymPy', sympy.__version__)" | tee sympy_version.txt
+
+      - name: Run the tests
+        id: tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m pytest -q 2>&1 | tee pytest.log
+
+      - name: Open an issue if the tests failed
+        if: steps.tests.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          open=$(gh issue list --label sympy-latest --state open --json number --jq 'length')
+          if [ "$open" != "0" ]; then
+            echo "An issue is already open; not opening another."
+            exit 0
+          fi
+          gh label create sympy-latest --color d73a4a \
+            --description "Tests fail with the latest SymPy" --force
+          {
+            echo "The scheduled tests failed with $(cat sympy_version.txt)."
+            echo
+            echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo
+            echo "Last lines of the log:"
+            echo
+            echo '```'
+            tail -n 40 pytest.log
+            echo '```'
+            echo
+            echo "This issue is closed automatically when the tests pass again."
+          } > body.md
+          gh issue create --title "Tests fail with $(cat sympy_version.txt)" \
+            --label sympy-latest --body-file body.md
+
+      - name: Close the issue if the tests passed again
+        if: steps.tests.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for n in $(gh issue list --label sympy-latest --state open --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "The tests pass again with $(cat sympy_version.txt)."
+          done
+
+      - name: Fail the job if the tests failed
+        if: steps.tests.outcome == 'failure'
+        run: exit 1

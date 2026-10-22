@@ -141,13 +141,13 @@ powers as products.
 
 ## Recipe 4: prove a small first-order statement
 
+Write the statement in the logical notation (or build it with
+`ForAll`, `Exists`, `Implies`, ... and `PredApply`):
+
 ```python
->>> from sympy_matrix_tools.fol import Theorem, Exists, by_auto, exI, SAFE
->>> x, y = symbols("x y")
->>> P = Symbol("P")
->>> g = Implies(Exists(Lambda(x, ForAll(Lambda(y, PredApply(P, x, y))))),
-...             ForAll(Lambda(y, Exists(Lambda(x, PredApply(P, x, y))))))
->>> Theorem("ex_all_swap", g, by_auto(exI, safe=SAFE)).verify()
+>>> from sympy_matrix_tools.fol import Theorem, by_auto, exI, SAFE
+>>> Theorem("ex_all_swap", "(∃x. ∀y. P(x, y)) → (∀y. ∃x. P(x, y))",
+...         by_auto(exI, safe=SAFE)).verify()
 True
 
 ```

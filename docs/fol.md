@@ -44,6 +44,49 @@ evaluates `Implies(A, false)` to `~A` at once.  SymPy's `Or` is used;
 its automatic simplification is classically sound.
 
 
+## Writing formulas as text
+
+`parse_formula(text)` reads a formula written in the logical notation,
+the same notation that `formula_str` and `print_proofstate(...,
+pretty=True)` print, so that their output can be read back.  ASCII
+alternatives are accepted: `ALL`, `EX`, `->`, `<->`, `|`, `&`, `~` and
+`Bot`.
+
+  * A binder `∀x y.` or `∃x.` extends as far to the right as possible.
+    The precedence is `↔` < `→` (right associative) < `∨` < `∧` < `¬`.
+  * `P(t, ...)` is `PredApply(P, t, ...)`; the arguments are SymPy
+    expressions such as `f(x)` or `x + 1`.  A bare name `A` is a
+    proposition `Symbol("A", boolean=True)`.
+  * `?x` is a metavariable (`Wild`), `?P(x)` is
+    `PredApply(Wild("P"), x)`, and `?f(x)` in a term is
+    `Apply(Wild("f"), x)`.
+  * `[expr]` is any SymPy expression, e.g. `[x < 3]`, and `*φ` is
+    `FrozenGoal(φ)`, the goal of a proofstate.
+  * `symbols={"t": t}` gives the objects for free names, and
+    `predicates={"b": Predicate("b")}` applies SymPy predicates instead
+    of `PredApply`.
+
+`Theorem` accepts such a string as its statement.
+
+```python
+>>> f = parse_formula("ALL x. P(x) -> (EX y. R(f(x), y))")
+>>> f
+Q.ForAll(Lambda(x, Implies(PredApply(P, x), Q.Exists(Lambda(y, PredApply(R, f(x), y))))))
+>>> print(formula_str(f))
+∀x. P(x) → (∃y. R(f(x), y))
+>>> parse_formula(formula_str(f)) == f
+True
+>>> A, B = symbols("A B", boolean=True)
+>>> parse_formula("¬(A ∨ B) → ¬A ∧ ¬B") == Implies(neg(Or(A, B)), And(neg(A), neg(B)))
+True
+>>> Theorem("syllogism",
+...         "(∀x. P(x) → Q(x)) ∧ (∀x. Q(x) → R(x)) → (∀x. P(x) → R(x))",
+...         by_auto()).verify()
+True
+
+```
+
+
 ## The theory
 
 The definitions are given as pairs of axioms (fold and unfold):

@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2026-10-22T18:04:40Z" -->
+<!-- Time-stamp: "2026-10-22T18:27:21Z" -->
 
 Tools for symbolic matrix calculus and checked derivations with
 [SymPy](https://www.sympy.org/).
@@ -37,7 +37,7 @@ pip install git+https://github.com/JRF-2018/sympy_matrix_tools
 ```
 
 In Google Colab, put `!` before `pip`. To fix the version, specify a
-tag such as `...sympy_matrix_tools@v0.7.1`.
+tag such as `...sympy_matrix_tools@v0.8.0`.
 
 
 ## Quick tour
@@ -115,7 +115,7 @@ Summary: 4 steps, 1 asserted, 0 symbolic failures, 1 numeric failure, 0 open obl
 | Wild symbols and application | [docs/wild_apply.md](docs/wild_apply.md) | `MatrixWild`, `MatrixDummy`, `WildMatrixFunction`, `Apply`, `MatApply`, `PredApply` |
 | Derivation ledger | [docs/derivation.md](docs/derivation.md) | `Derivation`, `Grad`, `cas`, `rule` |
 | Unification, rewriting and proofstates | [docs/logic.md](docs/logic.md) | `ho_unify`, `rewriterules_from_eqs`, `resolve_mp`, `make_proofstate`, `resolve_implications`, `auto` |
-| First-order logic | [docs/fol.md](docs/fol.md) | `Theorem`, `Exists`, `Bot`, `neg`, `exI`, `exE`, `by_auto` |
+| First-order logic | [docs/fol.md](docs/fol.md) | `Theorem`, `parse_formula`, `Exists`, `Bot`, `neg`, `exI`, `exE`, `by_auto` |
 | Fixes of SymPy and known SymPy bugs | [docs/fixes.md](docs/fixes.md) | `fix_ExpectationMatrix_expand`, `fix_Basic_MatrixSymbol_about_dummy`, `fix_Transpose_eval_derivative` |
 | For AI agents | [docs/ai_guide.md](docs/ai_guide.md), [llms.txt](llms.txt) | when to use, recipes and pitfalls |
 | Development | [docs/development.md](docs/development.md) | tests, conventions |

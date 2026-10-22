@@ -22,7 +22,7 @@ classically sound.
 Predicates are Symbol's applied by PredApply; use PredApply(P, x, y)
 for a binary predicate.
 """
-__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
+__version__ = '0.8.0' # Time-stamp: <2026-10-22T18:27:21Z>
 
 from sympy import Symbol, Lambda, Implies, And, Or, Predicate
 from .apply import PredApply
@@ -55,11 +55,17 @@ def _ex (P, v=_y):
 class Theorem:
     """A named statement with its proof.
 
-    proof is a function that takes the initial proofstate and returns
-    a proofstate with no subgoals.  An axiom has no proof.
+    statement is a formula, or a string in the logical notation (see
+    logic_parser.parse_formula).  proof is a function that takes the
+    initial proofstate and returns a proofstate with no subgoals.  An
+    axiom has no proof.
     """
 
     def __init__ (self, name, statement, proof=None, axiom=False):
+        if isinstance(statement, str):
+            # e.g. "∀x. P(x) → (∃y. P(y))"; see parse_formula.
+            from .logic_parser import parse_formula
+            statement = parse_formula(statement)
         self.name = name
         self.statement = and_implication_normal_form(statement)
         self.proof = proof

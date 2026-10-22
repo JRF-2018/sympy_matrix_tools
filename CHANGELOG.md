@@ -5,6 +5,18 @@ All notable changes are recorded here.  The format is based on
 tagged as `vX.Y.Z` on GitHub.
 
 
+## [0.8.0] - 2026-10-23
+
+### Added
+- `parse_formula` (`sympy_matrix_tools.logic_parser`): reads formulas
+  in the logical notation that `formula_str` prints (with ASCII
+  alternatives), including metavariables and proofstates.
+- `Theorem` accepts a string as its statement.
+- `.github/workflows/sympy-latest.yml`: weekly tests with the latest
+  SymPy, which open an issue on failure (only one at a time) and close
+  it when the tests pass again.
+
+
 ## [0.7.1] - 2026-10-23
 
 ### Changed
@@ -120,6 +132,7 @@ http://jrf.cocolog-nifty.com/statuses/2022/06/post-2c0e50.html .
 - 0.0.x (2022-04): the first versions: `mat_coeff`, `mat_collect`,
   `mat_divide` and the fix of `MatMul.args_cnc`.
 
+[0.8.0]: https://github.com/JRF-2018/sympy_matrix_tools/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/JRF-2018/sympy_matrix_tools/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/JRF-2018/sympy_matrix_tools/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/JRF-2018/sympy_matrix_tools/compare/v0.5.0...v0.6.0

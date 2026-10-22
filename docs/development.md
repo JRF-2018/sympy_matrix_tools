@@ -20,6 +20,16 @@ results with the direct differentiation by `derive_by_array`.  The
 tests of the first-order logic (`tests/test_fol.py`) check also that
 non-theorems are rejected.
 
+## Scheduled tests on GitHub
+
+`.github/workflows/sympy-latest.yml` runs the tests with the latest
+SymPy every Monday (and by hand from the "Actions" tab).  If they
+fail, it opens an issue labeled `sympy-latest`, unless such an issue
+is already open; when they pass again, it closes the issue with a
+comment.  GitHub disables scheduled workflows of a repository without
+activity for 60 days; enable it again in the "Actions" tab.
+
+
 ## Conventions
 
   * Each source file has `__version__` and a `Time-stamp` near the top
