@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.4' # Time-stamp: <2022-07-06T04:33:07Z>
+"""Application of a (possibly unknown) function to arguments.
+
+Apply, MatApply and PredApply apply a symbol to arguments; they are
+beta-reduced when the symbol is replaced by a Lambda.  PredApply is
+used for predicates with any number of arguments.
+
+See docs/wild_apply.md.
+"""
+__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
 
 from sympy import Expr, MatrixExpr, AppliedPredicate, Lambda,\
     sympify, Wild, Dummy

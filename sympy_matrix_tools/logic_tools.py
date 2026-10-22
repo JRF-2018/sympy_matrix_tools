@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.5.0' # Time-stamp: <2026-10-22T16:34:30Z>
+"""Isabelle-style proofstates on a minimal core (ForAll, Implies, And).
+
+A proofstate is an implication whose premises are subgoals and whose
+conclusion is the goal (FrozenGoal).  Wild symbols are metavariables.
+make_proofstate, resolve_implications, eresolve_implications,
+remove_trivial_assumptions, split_goals and melt_theorem make proofs;
+auto searches proofs.  formula_str and print_proofstate show formulas
+in the logical notation.
+
+See docs/logic.md and docs/fol.md.
+"""
+__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
 
 import re
 from sympy import And, Implies, Predicate, Lambda, AppliedPredicate, Wild,\

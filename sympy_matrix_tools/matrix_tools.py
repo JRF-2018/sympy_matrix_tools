@@ -1,5 +1,15 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.4.0' # Time-stamp: <2026-10-22T14:29:04Z>
+"""Functions for non-commutative matrix expressions.
+
+mat_coeff, mat_collect, mat_divide and mat_trivial_divide find
+coefficients, collect terms and divide in matrix expressions, where
+the order of factors matters.  mat_expand expands scalar coefficients
+too, and partial_apply applies a function to a subexpression.  It also
+has fix_ExpectationMatrix_expand for sympy.stats.
+
+See docs/matrix_tools.md.
+"""
+__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
 
 from sympy import Basic, Mul, Add, MatMul, MatAdd, Integer, \
   Identity, MatPow, Pow, Inverse, Transpose, powsimp
@@ -90,6 +100,16 @@ def mat_expand (X, **hints):
 
 
 def partial_apply (X, arg, applyf):
+  """Replace the subexpression arg of X by applyf(arg).
+
+  >>> from sympy import MatrixSymbol, Symbol
+  >>> N = Symbol("N", integer=True)
+  >>> M1 = MatrixSymbol("M1", N, N)
+  >>> M2 = MatrixSymbol("M2", N, N)
+  >>> z = (M1 + M2) * M1 + M2
+  >>> partial_apply(z, (M1 + M2) * M1, lambda y: y.expand())
+  (M1**2 + M2*M1) + M2
+  """
   repl = applyf(arg)
   return X.subs(arg, repl)
 
@@ -188,6 +208,26 @@ def mat_separate_cnc (X, expand_pow=False, cset=False, right=True):
     
 
 def mat_coeff (X, Y, right=False, expand_pow=False, nth=0):
+  """Return the coefficient C of Y in a term C*Y of X.
+
+  If right is True, look for a term Y*C instead.  The coefficient of
+  the nth matching term (from 0) is returned, not the sum; use
+  mat_collect to collect all terms.  If expand_pow is True, powers
+  such as M**2 are treated as products M*M.  Return None if no term
+  matches.
+
+  >>> from sympy import MatrixSymbol, Symbol
+  >>> N = Symbol("N", integer=True)
+  >>> M1 = MatrixSymbol("M1", N, N)
+  >>> M2 = MatrixSymbol("M2", N, N)
+  >>> z = M1 * M2 + 3 * M2 * M1 + M1 ** 2
+  >>> mat_coeff(z, M1)
+  3*M2
+  >>> mat_coeff(z, M1, right=True)
+  M2
+  >>> mat_coeff(z, M1, nth=1, expand_pow=True)
+  M1
+  """
   Yc, Ync = mat_separate_cnc(Y, expand_pow=expand_pow, cset=False,
                              right=not right)
   if X.func == MatAdd:
@@ -232,6 +272,20 @@ def mat_coeff (X, Y, right=False, expand_pow=False, nth=0):
 
 
 def mat_collect (X, Y, right=False, expand_pow=False, expand_inner=False):
+  """Collect the terms of the form C*Y in X into (sum of C)*Y.
+
+  If right is True, collect Y*C into Y*(sum of C).  Scalar terms are
+  multiplied by the identity matrix.  expand_pow treats powers as
+  products (see also the dict form in docs/matrix_tools.md), and
+  expand_inner expands the collected coefficient by mat_expand.
+
+  >>> from sympy import MatrixSymbol, Symbol
+  >>> N = Symbol("N", integer=True)
+  >>> M1 = MatrixSymbol("M1", N, N)
+  >>> M2 = MatrixSymbol("M2", N, N)
+  >>> mat_collect(M1 * M2 + M2 * M2 + 3 * M2, M2, expand_pow=True)
+  (3*I + M1 + M2)*M2
+  """
   Yc, Ync = mat_separate_cnc(Y, expand_pow=expand_pow, cset=False,
                              right=not right)
   if X.func != MatAdd:
@@ -299,6 +353,18 @@ def mat_collect (X, Y, right=False, expand_pow=False, expand_inner=False):
 
 
 def mat_divide (X, Y, right=False):
+  """Multiply X by Y**-1 from the left (from the right if right is
+  True), cancelling Y in each term where it is possible.
+
+  >>> from sympy import MatrixSymbol, Symbol
+  >>> N = Symbol("N", integer=True)
+  >>> M1 = MatrixSymbol("M1", N, N)
+  >>> M2 = MatrixSymbol("M2", N, N)
+  >>> mat_divide(M1 * M2, M1)
+  M2
+  >>> mat_divide(M1 * M2, M2)
+  M2**(-1)*M1*M2
+  """
   assert Y.is_commutative or Y.is_square
   if not Y.is_commutative:
     if right:
@@ -348,6 +414,17 @@ def mat_divide (X, Y, right=False):
 
 
 def mat_trivial_divide (X):
+    """Cancel trivial products of inverses such as (A*B)**-1*A*B in X.
+
+    >>> from sympy import MatrixSymbol, Symbol
+    >>> N = Symbol("N", integer=True)
+    >>> N2 = Symbol("N2", integer=True)
+    >>> M1 = MatrixSymbol("M1", N, N)
+    >>> M3 = MatrixSymbol("M3", N, N2)
+    >>> M4 = MatrixSymbol("M4", N2, N)
+    >>> mat_trivial_divide(M1 + ((M3 * M4) ** -2) * M3 * M4)
+    (M3*M4)**(-1) + M1
+    """
     d = {}
     for Z in X.atoms(MatMul):
         for Y in Z.atoms(Inverse):

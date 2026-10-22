@@ -1,0 +1,28 @@
+# sympy_matrix_tools
+
+> Tools for symbolic matrix calculus and checked derivations with SymPy (>= 1.14): undefined matrix-valued functions (MatrixFunction) with the chain rule, coefficients and collection in non-commutative matrix expressions, sums of matrices, a derivation ledger (Derivation) that checks every step of a derivation exactly with random rational matrices, and experimental logic tools (higher-order pattern unification, an Isabelle-style prover with first-order logic).
+
+Install: `pip install "sympy>=1.14" git+https://github.com/JRF-2018/sympy_matrix_tools`. Import: `from sympy_matrix_tools import *`; the derivation ledger and first-order logic are in `sympy_matrix_tools.derivation` and `sympy_matrix_tools.fol`. All examples in the documents are doctests. Use it to derive and check textbook-size matrix formulas; do not use it for numerical linear algebra or for rigorous proofs.
+
+## Docs
+
+- [Guide for AI agents](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/ai_guide.md): when to use, tested recipes, pitfalls of SymPy 1.14
+- [README](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/README.md): overview, installation, quick tour
+- [Derivation ledger](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/derivation.md): Derivation, Grad, cas, rule, solve_linear, check, report
+- [Matrix functions and the chain rule](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/matrix_function.md): MatrixFunction, mat_diff, freeze_matrix_function
+- [Matrix expressions](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/matrix_tools.md): mat_coeff, mat_collect, mat_divide, mat_expand
+- [Fixes and known SymPy bugs](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/fixes.md): bugs of SymPy 1.14 and workarounds
+
+## Examples
+
+- [LQ control with a derivation ledger](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/examples/lq_control.ipynb)
+- [Chain rule of MatrixFunction](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/examples/chain_rule.ipynb)
+- [First-order logic](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/examples/first_order_logic.ipynb)
+
+## Optional
+
+- [Sequences and sums of matrices](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/sequences.md): Sum_step_forward, Sum_collect, MatSum, MatProduct
+- [Wild symbols and application](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/wild_apply.md): MatrixWild, MatrixDummy, Apply, PredApply
+- [Unification, rewriting and proofstates](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/logic.md): ho_unify, resolve_implications, auto
+- [First-order logic](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/fol.md): Theorem, Exists, by_auto
+- [Changelog](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/CHANGELOG.md)

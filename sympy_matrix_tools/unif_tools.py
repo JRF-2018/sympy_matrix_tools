@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.3.2' # Time-stamp: <2022-07-12T23:06:33Z>
+"""Rewriting and reasoning with unification.
+
+rewriterules_from_eqs, apply_rewriterules, rewrite_subterm,
+try_rewriterule, resolve_mp, rename_bound_symbols_uniquely and
+conditional_apply.
+
+See docs/logic.md.
+"""
+__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
 
 import re
 from sympy import preorder_traversal, Eq, Equivalent, And, Implies

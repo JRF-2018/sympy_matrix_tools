@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.6.0' # Time-stamp: <2026-10-22T16:54:53Z>
-
 """A ledger of derivations with numerical spot checks.
 
 A Derivation records facts (hypotheses, definitions and derived
@@ -21,15 +19,17 @@ whoever wrote them, a human, an AI or a buggy CAS.
 As in the calc of Lean, the intermediate expressions are written in
 the script, so that the script can be read without running it.
 """
+__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
 
 import random
 from sympy import Basic, Eq, Symbol, MatrixSymbol, MatrixExpr, \
     ImmutableMatrix, Matrix, Rational, Integer, ZeroMatrix, Identity, \
-    MatAdd, Q, diff, sympify
+    MatAdd, MatMul, Add, Q, diff, sympify, Dummy, Lambda, Derivative, Subs
 from sympy import latex as _latex
 from sympy.assumptions.assume import AppliedPredicate
 from .matrix_tools import mat_expand, mat_coeff
-from .matrix_function import mat_diff
+from .matrix_function import mat_diff, AppliedMatrixUndef, derivative_str
+from sympy.core.function import AppliedUndef, UndefinedFunction
 
 
 class Grad (MatrixExpr):
@@ -115,24 +115,80 @@ class rule (Justification):
             lt, rt = l.T.doit(), r.T.doit()
             pairs += [(lt, rt), (rt, lt)]
         cands = []
+
+        def add (f):
+            # SymPy's subs may raise an exception, e.g. for a part of
+            # a MatAdd.
+            try:
+                c = f()
+            except Exception:
+                return
+            if c not in cands:
+                cands.append(c)
+
+        def subs (c, a, b):
+            try:
+                c = c.subs(a, b)
+            except Exception:
+                pass
+            return _subs_part(c, a, b)
+
+        def group_subs (e, group):
+            for a, b in group:
+                e = subs(e, a, b)
+            return e
+
         for e in (expr, mat_expand(expr)):
             # Rewrite both lhs and its transpose in one direction.
             for group in (pairs[0::2], pairs[1::2]):
-                c = e
-                for a, b in group:
-                    c = c.subs(a, b)
-                if c not in cands:
-                    cands.append(c)
+                add(lambda: group_subs(e, group))
             for a, b in pairs:
-                for c in (e.subs(a, b), e.xreplace({a: b})):
-                    if c not in cands:
-                        cands.append(c)
+                add(lambda: e.subs(a, b))
+                add(lambda: e.xreplace({a: b}))
+                add(lambda: _subs_part(e, a, b))
         return cands
 
     def __str__ (self):
         return "rule " + self.name
 
     deps = property(lambda self: (self.name,))
+
+
+def _subs_part (e, old, new):
+    """Replace old by new in e, where old may be a part of a sum (some
+    of its terms) or of a product (a contiguous run of its factors)."""
+    if isinstance(old, (MatAdd, Add)):
+        olds = list(old.args)
+
+        def match (u):
+            return type(u) == type(old) and len(u.args) > len(olds) \
+                and all(a in u.args for a in olds)
+
+        def repl (u):
+            rest = list(u.args)
+            for a in olds:
+                rest.remove(a)
+            return u.func(new, *rest)
+        return e.replace(match, repl)
+    if isinstance(old, MatMul):
+        olds = list(old.args)
+        k = len(olds)
+
+        def find (u):
+            if not isinstance(u, MatMul) or len(u.args) <= k:
+                return None
+            a = list(u.args)
+            for i in range(len(a) - k + 1):
+                if a[i:i + k] == olds:
+                    return i
+            return None
+
+        def repl (u):
+            i = find(u)
+            a = list(u.args)
+            return MatMul(*(a[:i] + [new] + a[i + k:]))
+        return e.replace(lambda u: find(u) is not None, repl)
+    return e
 
 
 def _is_zero (e):
@@ -145,14 +201,39 @@ def _is_zero (e):
     return False
 
 
-def symbolic_equal (a, b):
-    """Check a == b symbolically (incompletely)."""
+def _canonical_1x1 (e, symmetric=()):
+    # A (1, 1) matrix equals its transpose.  Each (1, 1) term of the
+    # expanded e is replaced by the smaller of itself and its transpose,
+    # where X.T is replaced by X for the symmetric X's.
+    sym = {X.T: X for X in symmetric}
+    e = mat_expand(e).xreplace(sym)
+    if getattr(e, 'shape', None) != (1, 1):
+        return e
+    terms = e.args if isinstance(e, MatAdd) else (e,)
+    r = []
+    for t in terms:
+        u = mat_expand(t.T.doit()).xreplace(sym)
+        r.append(min(t, u, key=str))
+    return MatAdd(*r).doit() if len(r) > 1 else r[0]
+
+
+def symbolic_equal (a, b, symmetric=()):
+    """Check a == b symbolically (incompletely).
+
+    symmetric is a list of matrix symbols X with X.T = X, which is used
+    with the fact that a (1, 1) matrix equals its transpose.
+    """
     if a == b:
         return True
     try:
         if mat_expand(a) == mat_expand(b):
             return True
-        return _is_zero(mat_expand((a - b).doit()))
+        if _is_zero(mat_expand((a - b).doit())):
+            return True
+        if getattr(a, 'shape', None) == (1, 1):
+            return _canonical_1x1(a, symmetric) \
+                == _canonical_1x1(b, symmetric)
+        return False
     except Exception:
         return False
 
@@ -190,6 +271,33 @@ class Fact:
         self.obligations = list(obligations)   # [(prop, discharged_by)]
         self.note = note
         self.numeric = None
+
+
+def _substitute_functions (e, heads):
+    """Substitute Lambda's for undefined functions in e, and evaluate
+    the derivatives and Subs's of them.
+
+    Not e.subs, which turns MatrixDerivative into Derivative.
+    """
+    if isinstance(e, Derivative):
+        r = _substitute_functions(e.expr, heads)
+        for v, c in e.variable_count:
+            for i in range(c):
+                r = r.diff(v)
+        return r.doit()
+    if isinstance(e, Subs):
+        r = _substitute_functions(e.expr, heads)
+        p = [_substitute_functions(a, heads) for a in e.point]
+        return r.subs(list(zip(e.variables, p))).doit()
+    if isinstance(e, AppliedUndef) and e.func in heads:
+        return heads[e.func](*[_substitute_functions(a, heads)
+                               for a in e.args])
+    if e.is_Atom or not e.args:
+        return e
+    args = [_substitute_functions(a, heads) for a in e.args]
+    if all(a == b for a, b in zip(args, e.args)):
+        return e
+    return e.func(*args)
 
 
 def _numeric_equal (a, b):
@@ -249,7 +357,7 @@ class Derivation:
         else:
             self.aliases[expr] = Symbol(name)
 
-    def _show (self, e, printer=str):
+    def _show (self, e, printer=derivative_str):
         e = sympify(e)
         if isinstance(e, Eq):
             # Don't rebuild Eq, which evaluates its arguments.
@@ -360,10 +468,18 @@ class Derivation:
                 st.symbolic = None
             else:
                 cands = [prev]
+                # Symmetric matrices by the facts cited in this step.
+                sym = []
+                for name in st.deps:
+                    pr = self.facts[name].prop
+                    if isinstance(pr, Eq):
+                        for a, b in (pr.args, pr.args[::-1]):
+                            if isinstance(a, MatrixSymbol) and b == a.T:
+                                sym.append(a)
                 try:
                     for j in st.justifications:
                         cands = sum([j.apply(c, self) for c in cands], [])
-                    st.symbolic = any(symbolic_equal(c, st.expr)
+                    st.symbolic = any(symbolic_equal(c, st.expr, sym)
                                       for c in cands)
                 except Exception:
                     st.symbolic = False
@@ -371,15 +487,72 @@ class Derivation:
 
     # Numerical checks.
 
+    def _exprs (self):
+        for f in self.facts.values():
+            yield f.prop
+            for st in f.steps:
+                yield st.expr
+            if hasattr(f, 'start'):
+                yield f.start
+
     def _symbols (self):
         s = set()
-        for f in self.facts.values():
-            s |= f.prop.atoms(MatrixSymbol, Symbol)
-            for st in f.steps:
-                s |= st.expr.atoms(MatrixSymbol, Symbol)
-            if hasattr(f, 'start'):
-                s |= f.start.atoms(MatrixSymbol, Symbol)
+        for e in self._exprs():
+            # Not atoms, which include bound variables of Subs etc.
+            s |= e.free_symbols
         return s
+
+    def _functions (self):
+        """Return {head: an application} of undefined functions."""
+        r = {}
+        for e in self._exprs():
+            for a in e.atoms(AppliedUndef):
+                r.setdefault(a.func, a)
+        return r
+
+    def _random_function (self, head, app, values, rng):
+        # A random polynomial (constant, linear and quadratic terms) in
+        # the arguments.  The coefficients of a MatrixFunction are new
+        # MatrixSymbol's, which are added to values.
+        name = str(head)
+        xs = []
+        terms = []
+        if isinstance(app, AppliedMatrixUndef):
+            n, m = head.shape
+            k = [0]
+
+            def coeff (r, c):
+                k[0] += 1
+                C = MatrixSymbol("_%s_c%d" % (name, k[0]), r, c)
+                rr, cc = [int(sympify(a).xreplace(values)) for a in (r, c)]
+                values[C] = ImmutableMatrix(
+                    rr, cc, lambda i, j: self._random_rational(rng))
+                return C
+
+            terms.append(coeff(n, m))
+            for i, a in enumerate(app.args):
+                if getattr(a, 'is_Matrix', False):
+                    p, q = a.shape
+                    X = MatrixSymbol("_%s_x%d" % (name, i), p, q)
+                    terms.append(coeff(n, p) * X * coeff(q, m))
+                    # Not X*X, which becomes X**2 (the derivative of
+                    # MatPow fails in SymPy 1.14).
+                    terms.append(coeff(n, p) * X * coeff(q, p) * X
+                                 * coeff(q, m))
+                else:
+                    X = Dummy("x%d" % i)
+                    terms.append(X * coeff(n, m))
+                    terms.append(X ** 2 * coeff(n, m))
+                xs.append(X)
+            body = MatAdd(*terms)
+        else:
+            body = self._random_rational(rng)
+            for i, a in enumerate(app.args):
+                X = Dummy("x%d" % i)
+                body += self._random_rational(rng) * X \
+                    + self._random_rational(rng) * X ** 2
+                xs.append(X)
+        return Lambda(tuple(xs), body)
 
     def _generatable (self, name, memo=None):
         if memo is None:
@@ -458,6 +631,9 @@ class Derivation:
                 values[s] = ImmutableMatrix(M)
             elif isinstance(s, Symbol) and not s.is_integer:
                 values[s] = self._random_rational(rng)
+        for head, app in sorted(self._functions().items(),
+                                key=lambda x: str(x[0])):
+            values[head] = self._random_function(head, app, values, rng)
         pending = dict(defs)
         while pending:
             done = False
@@ -479,6 +655,13 @@ class Derivation:
         expr = sympify(expr)
         for g in sorted(expr.atoms(Grad), key=lambda g: -len(str(g))):
             expr = expr.xreplace({g: self._evaluate_grad(g, values)})
+        heads = {k: v for k, v in values.items()
+                 if isinstance(k, UndefinedFunction)}
+        if heads:
+            # Substitute the functions and differentiate them before the
+            # variables are replaced by numbers.
+            expr = _substitute_functions(expr, heads).doit()
+            values = {k: v for k, v in values.items() if k not in heads}
         r = expr.xreplace(values).doit()
         if isinstance(r, MatrixExpr):
             r = r.as_explicit()
@@ -582,8 +765,9 @@ class Derivation:
                     symbolic_failures=sfail, numeric_failures=nfail,
                     open_obligations=opened)
 
-    def report (self, printer=str):
-        """Return the report as a plain text."""
+    def report (self, printer=derivative_str):
+        """Return the report as a plain text.  Derivatives of undefined
+        functions are shown by derivative_str, e.g. x'(t)."""
         _p = printer
         printer = lambda e: self._show(e, _p)
         lines = ["Derivation: %s" % self.title]
@@ -606,10 +790,13 @@ class Derivation:
                              % (printer(p), ("discharged by " + by)
                                 if by else "OPEN"))
         s = self.summary()
-        lines.append("Summary: %(steps)d steps, %(asserted)d asserted, "
-                     "%(symbolic_failures)d symbolic failures, "
-                     "%(numeric_failures)d numeric failures, "
-                     "%(open_obligations)d open obligations." % s)
+        def count (k, word):
+            return "%d %s%s" % (s[k], word, "" if s[k] == 1 else "s")
+        lines.append("Summary: %s, %d asserted, %s, %s, %s."
+                     % (count("steps", "step"), s["asserted"],
+                        count("symbolic_failures", "symbolic failure"),
+                        count("numeric_failures", "numeric failure"),
+                        count("open_obligations", "open obligation")))
         return "\n".join(lines)
 
     def _repr_latex_ (self):

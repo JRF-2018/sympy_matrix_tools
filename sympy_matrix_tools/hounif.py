@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.6.0' # Time-stamp: <2026-10-22T16:54:53Z>
-
 """Higher-order pattern unification for SymPy terms.
 
 Wild's are metavariables.  Bound variables of Lambda are compared up
@@ -13,6 +11,7 @@ Arguments of commutative operators (And, Or, Add, Mul, Equivalent)
 are tried in all permutations, so ho_unify() may yield more than one
 unifier.
 """
+__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
 
 from itertools import permutations
 from sympy import Wild, Lambda, Dummy, And, Or, Add, Mul, Equivalent

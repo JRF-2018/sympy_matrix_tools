@@ -1,0 +1,36 @@
+# Development
+
+[Back to README](../README.md)
+
+## Tests
+
+You need SymPy >= 1.14 and pytest.
+
+```sh
+python -m pytest
+```
+
+`pytest.ini` runs the tests in `tests`, the doctests in the modules of
+`sympy_matrix_tools`, and the doctests in `README.md` and `docs/*.md`.
+The notebooks in `examples` are executed by `tests/test_examples.py`.
+
+The tests of the chain rule (`tests/test_matrix_function.py`)
+substitute concrete functions for `MatrixFunction`'s and compare the
+results with the direct differentiation by `derive_by_array`.  The
+tests of the first-order logic (`tests/test_fol.py`) check also that
+non-theorems are rejected.
+
+## Conventions
+
+  * Each source file has `__version__` and a `Time-stamp` near the top
+    (after the module docstring).  Update both when the file is
+    changed.
+  * Each module has a docstring, and the main functions have
+    docstrings with doctests, so that `help()` is useful to humans and
+    AI agents.
+  * Write a space between a function name and its parameters in
+    definitions: `def name (args):`.
+  * Source files use CRLF line endings.
+  * Everything public (code, comments, documents and examples) is
+    written in English.
+  * Record changes in [CHANGELOG.md](../CHANGELOG.md).

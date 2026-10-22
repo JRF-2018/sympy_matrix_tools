@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.4' # Time-stamp: <2022-07-06T04:31:35Z>
+"""Sums and products of matrices: MatSum and MatProduct.
+
+See docs/sequences.md.
+"""
+__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
 
 import sympy
 from sympy import Mul, Add, Sum, Product, MatrixExpr, StrPrinter, \

@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.4.0' # Time-stamp: <2026-10-22T14:29:04Z>
+"""Wild and dummy matrix symbols.
+
+MatrixWild, MatrixDummy, WildMatrixFunction, make_dummy, make_wild and
+fix_Basic_MatrixSymbol_about_dummy.
+
+See docs/wild_apply.md.
+"""
+__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
 
 from sympy import MatrixSymbol, Wild, Dummy, sympify, \
     MatrixExpr, WildFunction, Symbol

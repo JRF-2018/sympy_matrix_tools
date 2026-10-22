@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.6.0' # Time-stamp: <2026-10-22T16:54:53Z>
-
 """First-order logic on the minimal core of logic_tools.
 
 The core of logic_tools has only ForAll, Implies and And (as the
@@ -24,6 +22,7 @@ classically sound.
 Predicates are Symbol's applied by PredApply; use PredApply(P, x, y)
 for a binary predicate.
 """
+__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
 
 from sympy import Symbol, Lambda, Implies, And, Or, Predicate
 from .apply import PredApply

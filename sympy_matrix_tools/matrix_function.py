@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.4.0' # Time-stamp: <2026-10-22T14:29:04Z>
+"""Undefined matrix-valued functions and the chain rule.
+
+MatrixFunction("F", n, m) makes an undefined function whose values are
+n x m matrices.  Its derivatives by scalars and by matrices follow the
+chain rule (MatrixDerivative, MatrixSubs, ArraySubs).  mat_diff
+differentiates by a matrix and avoids bugs of convert_array_to_matrix
+of SymPy 1.14.  freeze_matrix_function and melt_matrix_function
+replace applied functions by matrix symbols and back.
+
+See docs/matrix_function.md.
+"""
+__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
 
 from sympy import Function, MatrixExpr, sympify, MatrixSymbol, Expr, \
     Derivative, Subs, Dummy, ZeroMatrix, MatAdd, MatMul, Symbol, Tuple, \
@@ -8,6 +19,7 @@ from sympy.matrices.expressions.matexpr import MatrixElement, _LeftRightArgs
 from sympy.core.function import UndefinedFunction, Application, AppliedUndef, \
     ArgumentIndexError
 from sympy.utilities.iterables import is_sequence, has_dups
+from sympy.printing.str import StrPrinter
 from sympy.tensor.array.array_derivatives import ArrayDerivative
 from sympy.tensor.array.expressions.array_expressions import _ArrayExpr, \
     ZeroArray, get_rank, get_shape, _array_tensor_product, \
@@ -69,6 +81,24 @@ from sympy.tensor.array.expressions.from_matrix_to_array \
 
 
 class MatrixFunction (Function, MatrixExpr):
+    """An undefined matrix-valued function.
+
+    MatrixFunction("F", n, m) makes an undefined function whose values
+    are n x m matrices.  It is differentiated by the chain rule by
+    scalars (.diff) and by matrices (mat_diff).  Substitute a Lambda for
+    it to make it concrete.
+
+    >>> from sympy import MatrixSymbol, Symbol, Lambda
+    >>> t = Symbol("t")
+    >>> A = MatrixSymbol("A", 2, 2)
+    >>> F = MatrixFunction("F", 2, 2)
+    >>> F(t).shape
+    (2, 2)
+    >>> F(t ** 2).diff(t)
+    (2*t)*Subs(Derivative(F(_xi_1), _xi_1), _xi_1, t**2)
+    >>> F(t ** 2).diff(t).subs(F, Lambda(t, t * A)).doit()
+    (2*t)*A
+    """
     def __new__ (cls, *args, **options):
         if cls is MatrixFunction:
             return UndefinedMatrixFunction(*args, **options)
@@ -410,7 +440,6 @@ def _matrix_function_eval_derivative (expr, x):
 def _ (expr: AppliedMatrixUndef, x: Expr):
     # x is a matrix.
     rx = get_rank(x)
-    rf = get_rank(expr)
     l = []
     for i, a in enumerate(expr.args, start=1):
         if not a.has(x):
@@ -432,6 +461,82 @@ def _ (expr: AppliedMatrixUndef, x: Expr):
     if not l:
         return ZeroArray(*(get_shape(x) + expr.shape))
     return _array_add(*l)
+
+
+class _DerivativePrinter (StrPrinter):
+    def _prime (self, f, n, args):
+        return "%s%s(%s)" % (f, "'" * n if n <= 3 else "^(%d)" % n,
+                             ", ".join(self._print(a) for a in args))
+
+    def _print_Derivative (self, expr):
+        e = expr.expr
+        if isinstance(e, AppliedUndef) and len(expr.variable_count) == 1:
+            v, n = expr.variable_count[0]
+            if e.args == (v,):
+                return self._prime(e.func, n, e.args)
+        return super()._print_Derivative(expr)
+
+    def _print_Subs (self, expr):
+        d, vs, ps = expr.expr, expr.variables, expr.point
+        if isinstance(d, Derivative) and isinstance(d.expr, AppliedUndef) \
+           and len(vs) == 1 and len(d.variable_count) == 1:
+            f = d.expr
+            v, n = d.variable_count[0]
+            if v == vs[0] and isinstance(v, _DirectionDummy) \
+               and len(ps) == 1 and ps[0] == 0 and n == 1:
+                # The directional derivative.
+                args = []
+                dirs = []
+                for a in f.args:
+                    if a.has(v):
+                        # a is MatAdd(base, MatMul(v, direction)) by
+                        # _matrix_function_eval_derivative.
+                        terms = a.args if isinstance(a, MatAdd) else (a,)
+                        base = [u for u in terms if not u.has(v)]
+                        dr = [MatMul(*[w for w in u.args if w != v])
+                              for u in terms if u.has(v)]
+                        if len(dr) != 1 or dr[0].has(v):
+                            return super()._print_Subs(expr)
+                        args.append(MatAdd(*base) if len(base) > 1
+                                    else base[0])
+                        dirs.append(dr[0])
+                    else:
+                        args.append(a)
+                return "D%s(%s)[%s]" % (
+                    f.func, ", ".join(self._print(a) for a in args),
+                    ", ".join(self._print(a) for a in dirs))
+            if v == vs[0] and v in f.args \
+               and not any(v in a.free_symbols for a in f.args if a != v):
+                args = [ps[0] if a == v else a for a in f.args]
+                if len(f.args) == 1:
+                    return self._prime(f.func, n, args)
+                i = f.args.index(v) + 1
+                return "D_%d%s%s(%s)" % (
+                    i, "" if n == 1 else "^%d" % n, f.func,
+                    ", ".join(self._print(a) for a in args))
+        return super()._print_Subs(expr)
+
+
+def derivative_str (expr):
+    """Show expr with derivatives of undefined functions in a short
+    notation: F'(a) for Subs(Derivative(F(xi), xi), xi, a), x'(t) for
+    Derivative(x(t), t), D_2F(a, b) for the derivative by the second
+    argument, and DF(a)[d] for the directional derivative of F at a in
+    the direction d.
+
+    >>> from sympy import Symbol, MatrixSymbol
+    >>> t = Symbol("t")
+    >>> X = MatrixSymbol("X", 2, 2)
+    >>> F = MatrixFunction("F", 2, 2)
+    >>> x = MatrixFunction("x", 2, 1)
+    >>> derivative_str(F(2 * t + 1).diff(t))
+    "2*F'(2*t + 1)"
+    >>> derivative_str((x(t).T * x(t)).diff(t))
+    "x(t).T*x'(t) + x'(t).T*x(t)"
+    >>> derivative_str(F(t * X).diff(t))
+    'DF(t*X)[X]'
+    """
+    return _DerivativePrinter().doprint(expr)
 
 
 def mat_diff (expr, x):
@@ -477,6 +582,12 @@ fix_Transpose_eval_derivative()
 
 
 def freeze_matrix_function (z, exclude=None):
+    """Replace applied MatrixFunction's in z by MatrixSymbol's.
+
+    Return the new expression and the substitution, which
+    melt_matrix_function reverts.  This is useful to differentiate by
+    x(t) itself, which SymPy 1.14 does not support.
+    """
     if exclude is None:
         exclude = set()
     l = []
@@ -490,5 +601,6 @@ def freeze_matrix_function (z, exclude=None):
 
 
 def melt_matrix_function (z, sigma):
+    """Revert freeze_matrix_function with its substitution sigma."""
     d = dict([(v, n) for n, v in sigma.items()])
     return z.subs(d)

@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.2.0' # Time-stamp: <2022-06-19T01:27:37Z>
+"""Functions for symbolic sequences and sums.
+
+atoms_list, nth_Sum, Sum_expand, Sum_swap, Sum_collect,
+Sum_step_forward, Sum_step_backward, Sum_coeff_mul and the
+corresponding functions for Product.
+
+See docs/sequences.md.
+"""
+__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
 
 import sympy
 from .matrix_tools import *
