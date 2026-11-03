@@ -2,7 +2,7 @@
 
 > Tools for symbolic matrix calculus and checked derivations with SymPy (>= 1.14): undefined matrix-valued functions (MatrixFunction) with the chain rule, coefficients and collection in non-commutative matrix expressions, sums of matrices, a derivation ledger (Derivation) that checks every step of a derivation exactly with random rational matrices, and experimental logic tools (higher-order pattern unification, an Isabelle-style prover with first-order logic, statements about matrices, backward tactics and forward structured proofs, and theorems from the derivation ledger).
 
-To prove or check an argument (logic with matrix algebra) with this library, follow the workflow "Proving or checking an argument" in docs/ai_guide.md, and see examples/loewner_order.ipynb.
+To prove or check an argument (logic with matrix algebra) with this library, follow the workflow "Proving or checking an argument" in docs/ai_guide.md, and see examples/loewner_order.ipynb. The aim is a plausible argument whose every step is checked, not a proof from first principles: axioms (definitions, facts about numbers, induction) are fine if stated openly, but never make the claim itself an axiom.
 
 Install: `pip install "sympy>=1.14" git+https://github.com/JRF-2018/sympy_matrix_tools`. Import: `from sympy_matrix_tools import *`; the derivation ledger and first-order logic are in `sympy_matrix_tools.derivation` and `sympy_matrix_tools.fol`. All examples in the documents are doctests. Use it to derive and check textbook-size matrix formulas; do not use it for numerical linear algebra or for rigorous proofs.
 
@@ -13,7 +13,7 @@ Install: `pip install "sympy>=1.14" git+https://github.com/JRF-2018/sympy_matrix
 - [Derivation ledger](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/derivation.md): Derivation, Grad, cas, rule, solve_linear, check, report
 - [Matrix functions and the chain rule](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/matrix_function.md): MatrixFunction, mat_diff, freeze_matrix_function
 - [Matrix expressions](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/matrix_tools.md): mat_coeff, mat_collect, mat_divide, mat_expand
-- [First-order logic, matrices and structured proofs](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/fol.md): Theorem, parse_formula, by_auto, by_rule, by_rewrite, by_cas, by_steps, instance, Proof (have/show), Derivation.theorem, explain
+- [First-order logic, matrices and structured proofs](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/fol.md): Theorem, parse_formula, by_auto, by_rule, by_rewrite, by_rewrite_asm, by_cas, by_induct, by_steps, instance, Proof (have/show), Derivation.theorem, explain
 - [Fixes and known SymPy bugs](https://github.com/JRF-2018/sympy_matrix_tools/blob/master/docs/fixes.md): bugs of SymPy 1.14 and workarounds
 
 ## Examples

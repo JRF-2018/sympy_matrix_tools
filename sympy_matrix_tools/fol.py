@@ -29,16 +29,18 @@ statements may be about matrices, and Derivation.theorem turns the
 facts of a derivation ledger into Theorem's.  explain() shows what a
 theorem rests on.  See docs/fol.md.
 """
-__version__ = '0.9.0' # Time-stamp: <2026-11-03T01:08:23Z>
+__version__ = '0.10.0' # Time-stamp: <2026-11-03T03:41:31Z>
 
 from sympy import Symbol, Lambda, Implies, And, Or, Predicate, \
     MatrixSymbol, Wild, Dummy, sympify
-from .apply import PredApply
+from sympy import preorder_traversal
+from .apply import PredApply, Apply
 from .matrix_symbol import fix_Basic_MatrixSymbol_about_dummy
 from .unif_tools import rename_bound_symbols_uniquely
 from .logic_tools import ForAll, is_ForAll, make_proofstate, \
     melt_theorem, auto, and_implication_normal_form, formula_str, \
-    get_forall_symbols, resolve_implications, rewrite_goal, cas_goal, \
+    get_forall_symbols, get_syms_prems_concl, resolve_implications, \
+    rewrite_goal, rewrite_goal_by_assumption, cas_goal, \
     _split_concl, _map_terms, is_symbol_boolean
 from sympy.logic.boolalg import Boolean
 
@@ -71,17 +73,22 @@ def _ex (P, v=_y):
 
 
 def _shape_symbols (exprs):
+    # The symbols in the dimensions of matrices, and the predicates and
+    # functions applied by PredApply and Apply.
     s = set()
     for e in exprs:
-        for m in e.atoms(MatrixSymbol):
-            for d in m.shape:
-                s |= sympify(d).free_symbols
+        for m in preorder_traversal(e):
+            if getattr(m, 'is_Matrix', False) and hasattr(m, 'shape'):
+                for d in m.shape:
+                    s |= sympify(d).free_symbols
+            if isinstance(m, Apply):
+                s.add(m.function)
     return s
 
 
 def _variables (exprs, exclude=()):
-    # Free Symbol's and MatrixSymbol's, without dimensions, Wild's and
-    # Dummy's, sorted by name.
+    # Free Symbol's and MatrixSymbol's, without dimensions, predicates,
+    # Wild's and Dummy's, sorted by name.
     exclude = set(exclude) | _shape_symbols(exprs)
     vs = set()
     for e in exprs:
@@ -331,15 +338,67 @@ def by_rule (th, index=0, num=0):
     return _tactic(proof, "rule(%s)" % _name(th), [th])
 
 
-def by_rewrite (eq, index=0, reverse=False, num=0):
+def by_rewrite (eq, index=0, reverse=False, num=0, occurrence=None):
     """A step that rewrites the conclusion of the subgoal of the index
-    by the equation theorem eq (see logic_tools.rewrite_goal).  It may
-    leave subgoals, so use it in by_steps."""
+    by the equation theorem eq (see logic_tools.rewrite_goal).  All
+    occurrences of the matched subterm are rewritten, or only the one
+    of the number occurrence (from 0).  It may leave subgoals, so use
+    it in by_steps."""
     def proof (z):
         return rewrite_goal(z, _st(eq), index=index, reverse=reverse,
-                            num=num)
-    return _tactic(proof, "rewrite%s(%s)" % ("_rev" if reverse else "",
-                                             _name(eq)), [eq])
+                            num=num, occurrence=occurrence)
+    opt = "" if occurrence is None else ", occurrence=%d" % occurrence
+    return _tactic(proof, "rewrite%s(%s%s)" % ("_rev" if reverse else "",
+                                               _name(eq), opt), [eq])
+
+
+def by_rewrite_asm (num=0, index=0, reverse=False, occurrence=None):
+    """A step that rewrites the conclusion of the subgoal of the index
+    by its own premise, the num-th equation among its premises, e.g.
+    an induction hypothesis (see
+    logic_tools.rewrite_goal_by_assumption)."""
+    def proof (z):
+        return rewrite_goal_by_assumption(z, index=index, num=num,
+                                          reverse=reverse,
+                                          occurrence=occurrence)
+    return _tactic(proof, "rewrite%s_asm(%d)" % ("_rev" if reverse else "",
+                                                 num), [])
+
+
+def by_induct (rule, var, index=0):
+    """A step of induction on the bound variable named var of the
+    subgoal of the index, like induct of Isabelle.
+
+    rule is an induction theorem (usually an axiom of your own) with
+    one predicate variable, e.g.
+
+      nat_induct: ∀Phi k. Phi(0) ∧ (∀j. Phi(j) → Phi(j + 1)) → Phi(k)
+
+    The predicate variable is instantiated with Lambda(var, C), where C
+    is the conclusion of the subgoal (with the premises that contain
+    var), and the subgoal is resolved with the instance.  The subgoals
+    of the base case and of the step remain.
+    """
+    if not isinstance(rule, Theorem):
+        rule = Theorem("induction", rule, axiom=True)
+    pvs = [v for v in rule.variables()
+           if any(a.function == v for a in rule.statement.atoms(PredApply))]
+    if len(pvs) != 1:
+        raise ValueError("%s must have one predicate variable." % rule.name)
+    def proof (z):
+        gvs, prems, il = get_syms_prems_concl(z)
+        if index >= len(prems):
+            return None
+        lvs, xprems, xil = get_syms_prems_concl(prems[index])
+        ks = [v for v in lvs if str(v.name) == var]
+        if not ks:
+            return None
+        k = ks[0]
+        dep = [p for p in xprems if p.has(k)]
+        body = Implies(And(*dep), xil) if dep else xil
+        inst = rule.instance(**{str(pvs[0].name): Lambda(k, body)})
+        return resolve_implications(z, inst.statement, index=index)
+    return _tactic(proof, "induct(%s, %s)" % (rule.name, var), [rule])
 
 
 def by_cas (func="doit", index=0):

@@ -5,6 +5,28 @@ All notable changes are recorded here.  The format is based on
 tagged as `vX.Y.Z` on GitHub.
 
 
+## [0.10.0] - 2026-11-03
+
+### Added
+- `by_induct(rule, var)`: induction on a bound variable by an
+  induction axiom with a predicate variable, like `induct` of
+  Isabelle.
+- `by_rewrite_asm` (`logic_tools.rewrite_goal_by_assumption`):
+  rewriting by an equation among the premises of a subgoal, e.g. an
+  induction hypothesis.
+- `by_rewrite(..., occurrence=i)` and `rewrite_goal(..., occurrence=i)`
+  rewrite only one occurrence.
+- `examples/loewner_order.ipynb`: Vk ≼ Vk+1 and 0 ≼ Vk for all k, with
+  induction introduced as an axiom.
+- `docs/ai_guide.md`: "Axioms are fine", on what the framework is for
+  (plausible arguments with every step checked, not proofs from first
+  principles), and Recipe 6 (induction).
+
+### Fixed
+- `Theorem.instance` bound the predicates and the dimensions in the
+  new terms (e.g. `mat_le` and `n` in a `Lambda`) as variables.
+
+
 ## [0.9.0] - 2026-11-03
 
 ### Added

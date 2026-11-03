@@ -210,12 +210,20 @@ derivation ledger (`Derivation.theorem`, see
 of matrices, is in
 [examples/loewner_order.ipynb](../examples/loewner_order.ipynb).
 
+This logic aims at plausible arguments whose every step is checked,
+not at proofs without gaps from first principles as in Lean.  So
+introduce axioms freely (definitions, facts about numbers, induction,
+cited theorems), state them openly, and never state the claim itself
+as an axiom; `explain()` lists the axioms that a theorem rests on.
+
 | Name | Purpose |
 |---|---|
 | `by_auto(*rules, ...)` | search a proof backward with the rules (see above) |
 | `by_rule(th)` | one backward step with `th` (`rule` of Isabelle); it may leave subgoals |
 | `by_rewrite(eq, reverse=False)` | rewrite the conclusion of the first subgoal by an equation theorem |
+| `by_rewrite_asm(num=0)` | rewrite by an equation among the premises of the subgoal (e.g. an induction hypothesis) |
 | `by_cas(func="doit")` | apply a computation of SymPy to the terms of the first subgoal |
+| `by_induct(rule, var)` | induction on `var` by an induction axiom `rule` |
 | `by_steps(*tactics)` | apply tactics in order |
 | `th.instance(x=t, ...)` | the instance of `th` at `x := t` |
 | `th.cas(func="doit")` | `th` with its terms computed by SymPy |
@@ -272,16 +280,27 @@ theorems that it uses.
 
   * `by_rule(th, index=0)` resolves the subgoal of the index with `th`
     backward, like `rule` of Isabelle.
-  * `by_rewrite(eq, index=0, reverse=False, num=0)` rewrites the
-    conclusion of the subgoal by `eq`, a theorem `∀ws. C → l = r`: the
-    first subterm that is an instance of `l` is replaced by the
-    instance of `r` (with `reverse=True`, `r` by `l`), and the
-    conditions `C` become subgoals.  The step is an instance of the
-    substitution of equals, `s = t ∧ P(t) → P(s)`.
-    (`logic_tools.rewrite_goal`.)
+  * `by_rewrite(eq, index=0, reverse=False, num=0, occurrence=None)`
+    rewrites the conclusion of the subgoal by `eq`, a theorem
+    `∀ws. C → l = r`: the first subterm that is an instance of `l` is
+    replaced by the instance of `r` (with `reverse=True`, `r` by `l`),
+    and the conditions `C` become subgoals.  All its occurrences are
+    replaced, or only the one numbered `occurrence` (from 0, in
+    preorder).  The step is an instance of the substitution of
+    equals, `s = t ∧ P(t) → P(s)`.  (`logic_tools.rewrite_goal`.)
+  * `by_rewrite_asm(num=0, index=0, reverse=False, occurrence=None)`
+    rewrites the same way by the `num`-th equation among the premises
+    of the subgoal.  (`logic_tools.rewrite_goal_by_assumption`.)
   * `by_cas(func="doit", index=0)` applies a computation of SymPy (a
     function or a method name such as `"expand"`) to the terms in the
     conclusion of the subgoal.  (`logic_tools.cas_goal`.)
+  * `by_induct(rule, var, index=0)` is induction on the bound
+    variable named `var` of the subgoal, like `induct` of Isabelle.
+    `rule` is an induction axiom with one predicate variable, e.g.
+    `∀Phi k. Phi(0) ∧ (∀k. Phi(k) → Phi(k + 1)) → Phi(k)`; the
+    predicate is instantiated with `Lambda(var, goal)`, and the base
+    case and the step remain as subgoals.  See Recipe 6 of
+    [ai_guide.md](ai_guide.md).
   * `by_steps(*tactics)` applies the tactics in order; the last one
     must solve all the subgoals.
 

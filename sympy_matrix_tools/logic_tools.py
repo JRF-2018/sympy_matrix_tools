@@ -10,7 +10,7 @@ in the logical notation.
 
 See docs/logic.md and docs/fol.md.
 """
-__version__ = '0.9.0' # Time-stamp: <2026-11-03T01:08:23Z>
+__version__ = '0.10.0' # Time-stamp: <2026-11-03T03:41:31Z>
 
 import re
 from sympy import And, Implies, Predicate, Lambda, AppliedPredicate, Wild,\
@@ -1050,16 +1050,34 @@ def _subterms (z, bound=frozenset()):
         yield from _subterms(a, bound)
 
 
-def iter_rewrite_goal (proofstate, eq, index=0, reverse=False):
+def _replace_occurrence (z, u, new, n):
+    # Replace the n-th occurrence (from 0, in preorder) of u in z.
+    count = [0]
+    def rec (z):
+        if z == u:
+            count[0] += 1
+            return new if count[0] - 1 == n else z
+        if z.is_Atom or count[0] > n:
+            return z
+        args = [rec(a) for a in z.args]
+        if all(a is b for a, b in zip(args, z.args)):
+            return z
+        return construct_term(z.func, *args)
+    return rec(z)
+
+
+def iter_rewrite_goal (proofstate, eq, index=0, reverse=False,
+                       occurrence=None):
     """Yield the proofstates where the conclusion of the subgoal of
     the index is rewritten by the equation eq.
 
     eq is a theorem ForAll ws. (C1 & ... -> Eq(l, r)) whose bound
     variables ws are pattern variables.  The first subterm (in
     preorder) of the conclusion that is an instance of l is replaced
-    by the instance of r; all of its occurrences are replaced.  The
-    conditions C1, ... become new subgoals.  With reverse=True, r is
-    rewritten to l.
+    by the instance of r; all of its occurrences are replaced, or only
+    the occurrence of the number occurrence (from 0, in preorder).
+    The conditions C1, ... become new subgoals.  With reverse=True, r
+    is rewritten to l.
 
     The step is an instance of the substitution of equals
     s = t & P(t) -> P(s), with P made by abstracting the occurrences
@@ -1094,7 +1112,12 @@ def iter_rewrite_goal (proofstate, eq, index=0, reverse=False):
             cs = [lift_wild(c.xreplace(d), gvs + lvs, exclude=fw)
                   for c in conds]
             z = make_dummy(u, "u")
-            body = xil.xreplace({u: z})
+            if occurrence is None:
+                body = xil.xreplace({u: z})
+            else:
+                body = _replace_occurrence(xil, u, z, occurrence)
+                if body == xil:
+                    continue
             if body.xreplace({z: u}) != xil:
                 continue
             new = [body.xreplace({z: t})] + cs
@@ -1112,7 +1135,8 @@ def iter_rewrite_goal (proofstate, eq, index=0, reverse=False):
                 yield rs
 
 
-def rewrite_goal (proofstate, eq, index=0, reverse=False, num=0):
+def rewrite_goal (proofstate, eq, index=0, reverse=False, num=0,
+                  occurrence=None):
     """Rewrite the conclusion of a subgoal by an equation; see
     iter_rewrite_goal.  num selects the result.  Return None if eq
     does not match.
@@ -1133,10 +1157,55 @@ def rewrite_goal (proofstate, eq, index=0, reverse=False, num=0):
     gl*: ∀y. P(2*y) → P(f(y))
     """
     for i, z in enumerate(iter_rewrite_goal(proofstate, eq, index=index,
-                                            reverse=reverse)):
+                                            reverse=reverse,
+                                            occurrence=occurrence)):
         if i == num:
             return z
     return None
+
+
+def rewrite_goal_by_assumption (proofstate, index=0, num=0, reverse=False,
+                                occurrence=None):
+    """Rewrite the conclusion of the subgoal of the index by its own
+    premise l = r, the num-th equation among its premises (from 0),
+    e.g. an induction hypothesis.  All occurrences of l are replaced by
+    r (r by l if reverse), or only the occurrence of the number
+    occurrence.  Return None if nothing changes.
+
+    >>> from sympy import Symbol, Function, Lambda, Eq, Implies
+    >>> from sympy_matrix_tools import PredApply
+    >>> x = Symbol("x")
+    >>> f = Function("f")
+    >>> P = Symbol("P")
+    >>> z = make_proofstate(ForAll(Lambda(x, Implies(Eq(f(x), x**2),
+    ...                                              PredApply(P, f(x) + 1)))))
+    >>> print_proofstate(rewrite_goal_by_assumption(z), pretty=True)
+    prem 0: ∀x. f(x) = x**2 → P(x**2 + 1)
+    gl*: ∀x1. f(x1) = x1**2 → P(f(x1) + 1)
+    """
+    gvs, prems, il = get_syms_prems_concl(proofstate)
+    if index >= len(prems):
+        return None
+    lvs, xprems, xil = get_syms_prems_concl(prems[index])
+    eqs = [p for p in xprems if isinstance(p, Equality)]
+    if num >= len(eqs):
+        return None
+    l, r = (eqs[num].rhs, eqs[num].lhs) if reverse \
+        else (eqs[num].lhs, eqs[num].rhs)
+    if occurrence is None:
+        nil = xil.xreplace({l: r})
+    else:
+        nil = _replace_occurrence(xil, l, r, occurrence)
+    if nil == xil:
+        return None
+    x = Implies(And(*xprems), nil)
+    if lvs:
+        x = ForAll(Lambda(lvs, x))
+    nprems = prems[0:index] + [x] + prems[index + 1:]
+    rs = Implies(And(*nprems), il)
+    if gvs:
+        rs = ForAll(Lambda(gvs, rs))
+    return and_implication_normal_form(rs, free_dummy=False)
 
 
 def _map_terms (z, func):

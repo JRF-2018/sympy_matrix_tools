@@ -231,6 +231,66 @@ See [fol.md](fol.md) and the long example
 Loewner order, with two ledgers and backward and forward proofs).
 
 
+## Axioms are fine: what this framework is for
+
+The logic of this library does not aim at proofs without gaps from
+first principles, as Lean or Isabelle/HOL do.  It aims at **plausible
+arguments whose every step is checked**: the structure of the argument
+by the logic, and the algebra by SymPy and the derivation ledger.
+
+So introducing axioms is normal, not a "sin": definitions, facts
+about numbers (`nonneg_add`: a ≥ 0 ∧ b ≥ 0 → a + b ≥ 0), induction
+(`nat_induct` below), or a known theorem of a textbook that you do not
+want to prove again.  What matters is that
+
+  * each axiom is plausible (a definition, a standard fact or a cited
+    theorem) and is shown to the user; `explain()` lists every axiom
+    that a theorem rests on;
+  * the claim itself, or a step of it, is **never** an axiom.
+
+
+## Recipe 6: induction
+
+Induction is an axiom with a predicate variable `Phi`.  `by_induct(rule,
+var)` instantiates `Phi` with the goal, as `induct` of Isabelle does,
+and leaves the base case and the step as subgoals.  A sequence is a
+function of a natural number (a `Function`, or a `MatrixFunction` for a
+sequence of matrices), defined by axioms.  `by_rewrite_asm()` rewrites
+by an equation among the premises of the subgoal, such as the
+induction hypothesis.
+
+```python
+>>> from sympy_matrix_tools.fol import by_induct, by_rewrite_asm, by_cas
+>>> k = Symbol("k", integer=True, nonnegative=True)
+>>> s = Function("s")
+>>> T = {"k": k, "s": s}
+>>> nat_induct = Theorem("nat_induct",
+...     "∀Phi k. Phi(0) ∧ (∀k. Phi(k) → Phi(k + 1)) → Phi(k)",
+...     axiom=True, symbols=T)
+>>> s_0 = Theorem("s_0", "s(0) = 0", axiom=True, symbols=T)
+>>> s_step = Theorem("s_step", "∀k. s(k + 1) = s(k) + 2*k + 1",
+...                  axiom=True, symbols=T)
+>>> sq = Theorem("sq", "∀k. s(k) = k**2",
+...     by_steps(by_induct(nat_induct, "k"),
+...              by_rewrite(s_0),        # the base case: s(0) = 0
+...              by_rewrite(s_step),     # the step: s(k + 1) = ...
+...              by_rewrite_asm(),       # s(k) = k**2
+...              by_cas("expand")),      # k**2 + 2*k + 1 = (k + 1)**2
+...     symbols=T)
+>>> sq.verify()
+True
+>>> print(sq.explain())
+theorem sq: ∀k. s(k) = k**2
+  proof: induct(nat_induct, k); rewrite(s_0); rewrite(s_step); rewrite_asm(0); cas(expand)
+  axioms: nat_induct, s_0, s_step
+  verified: yes
+
+```
+
+The Loewner example proves `V_mono` (Vk ≼ Vk+1 for all k) and
+`V_nonneg` in the same way, for a sequence of matrices.
+
+
 ## Proving or checking an argument: a workflow
 
 When you are asked to "prove (or check) this argument with
@@ -243,9 +303,11 @@ sympy_matrix_tools", work as follows.
      `from sympy_matrix_tools.derivation import Derivation, cas, rule`.
   2. **Split the argument** into three kinds of parts:
        * definitions and assumptions: axioms, `Theorem(name, "...",
-         axiom=True, symbols=S)`.  Keep them few, standard and
-         obviously true, and show them to the user.  **Never** state
-         the claim (or a step of it) as an axiom.
+         axiom=True, symbols=S)`.  Axioms are fine here (see "Axioms
+         are fine" above): definitions, facts about numbers,
+         induction, cited theorems.  Keep them plausible and show
+         them to the user.  **Never** state the claim (or a step of it)
+         as an axiom.
        * algebra (identities of matrices and scalars): a `Derivation`,
          each step justified by `cas(...)` or `rule(...)`, then
          `check()` and `d.theorem(name)`.
@@ -260,8 +322,12 @@ sympy_matrix_tools", work as follows.
        * give an instance by `th.instance(x=...)` when the unifier has
          to find a term inside a product (e.g. `P*x` in `x.T*P.T*M*P*x`);
        * rewrite by a ledger equation (`by_rewrite(eq)`, or
-         `reverse=True`) when SymPy does not apply the algebra by
-         itself; or compute by `by_cas("expand")`;
+         `reverse=True`, or only one `occurrence`) when SymPy does not
+         apply the algebra by itself, by an equation among the
+         premises (`by_rewrite_asm()`), or compute by
+         `by_cas("expand")`;
+       * for a statement about all natural numbers, use induction
+         (Recipe 6);
        * split the step into smaller `have`s, pass fewer facts in
          `using`, or raise `depth` and `max_nodes` of `by_auto`.
      If the step is still not proved, it may be false: check it
@@ -275,11 +341,9 @@ sympy_matrix_tools", work as follows.
 
 Limits to tell the user about:
 
-  * There is no induction: a statement about all k can only be checked
-    for some k (the Loewner example proves V1 ≼ V2 ≼ V3 of an
-    iteration, not Vk ≼ Vk+1 for all k).
-  * Arithmetic and inequalities of numbers are not built in; state
-    the facts you need (such as `nonneg_add`) as axioms.
+  * Induction, arithmetic and inequalities of numbers are not built
+    in; state what you need (such as `nat_induct` and `nonneg_add`)
+    as axioms, and say so.
   * `auto` is incomplete and takes about 0.1 seconds per proofstate.
   * For a proof that must be rigorous, translate the result to Lean or
     Isabelle.

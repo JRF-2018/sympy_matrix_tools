@@ -241,7 +241,8 @@ The steps:
 | `sresolve_implications(ps, th)` | `subgoal_tac` | add the conclusion of `th` as an assumption, with new subgoals for its premises |
 | `remove_trivial_assumptions(ps)` | `assumption` | prove a subgoal by one of its assumptions (also backward through assumptions with premises) |
 | `split_goals(ps)` | `conjI` | split subgoals whose conclusions are `And` or `Equivalent` |
-| `rewrite_goal(ps, eq, index=0, reverse=False)` | `subst` | rewrite the conclusion of a subgoal by an equation theorem `∀ws. C → l = r`; the conditions `C` become subgoals |
+| `rewrite_goal(ps, eq, index=0, reverse=False, occurrence=None)` | `subst` | rewrite the conclusion of a subgoal by an equation theorem `∀ws. C → l = r`; the conditions `C` become subgoals |
+| `rewrite_goal_by_assumption(ps, index=0, num=0)` | `subst` with a premise | rewrite the conclusion of a subgoal by an equation among its premises |
 | `cas_goal(ps, func="doit", index=0)` | `simp` (by SymPy) | apply a computation of SymPy to the terms in the conclusion of a subgoal |
 | `auto(ps, rules)` | `auto` | search a proof by backtracking with the steps above |
 

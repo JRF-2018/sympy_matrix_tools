@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2026-11-03T01:07:56Z" -->
+<!-- Time-stamp: "2026-11-03T03:41:31Z" -->
 
 Tools for symbolic matrix calculus and checked derivations with
 [SymPy](https://www.sympy.org/).
@@ -22,7 +22,10 @@ Tools for symbolic matrix calculus and checked derivations with
     backward with tactics or forward in the style of Isar
     (`Proof`: `have` ... `show`), and the algebra they need can come
     from a derivation ledger.  `explain()` shows what a theorem rests
-    on.
+    on.  The aim is a plausible argument whose every step is checked,
+    not a proof from first principles as in Lean, so axioms
+    (definitions, facts about numbers, induction) are used freely and
+    stated openly.
 
 As of SymPy 1.14, SymPy has nothing like `MatrixFunction`,
 `MatrixWild` or `MatSum`.
@@ -41,7 +44,7 @@ pip install git+https://github.com/JRF-2018/sympy_matrix_tools
 ```
 
 In Google Colab, put `!` before `pip`. To fix the version, specify a
-tag such as `...sympy_matrix_tools@v0.9.0`.
+tag such as `...sympy_matrix_tools@v0.10.0`.
 
 
 ## Quick tour
@@ -139,8 +142,9 @@ The examples in the documents are tested by doctest.
   * [examples/loewner_order.ipynb](examples/loewner_order.ipynb): the
     Loewner order of matrices defined in the notebook, and theorems
     about it (transitivity, monotonicity of `P.T*A*P + R`, and the
-    increase of the iterates of a Lyapunov-type iteration), proved
-    backward and forward with the algebra from derivation ledgers.
+    increase of the iterates of a Lyapunov-type iteration for all k,
+    with induction introduced as an axiom), proved backward and
+    forward with the algebra from derivation ledgers.
 
 An actual usage example is in
 [JRF-2018/economy_control](https://github.com/JRF-2018/economy_control)
@@ -163,7 +167,8 @@ this library, a prompt like the following works:
 Using https://github.com/JRF-2018/sympy_matrix_tools, prove (or check)
 the argument below. First read docs/ai_guide.md and follow its section
 "Proving or checking an argument". State the definitions and
-assumptions as axioms and show them to me, derive the algebra in a
+assumptions (also standard facts and induction, if needed) as axioms
+and show them to me, derive the algebra in a
 Derivation, write the proof as a Proof (have ... show), and report
 print(proof) and explain() of the main theorem. If a step cannot be
 proved, say so and do not add it as an axiom.

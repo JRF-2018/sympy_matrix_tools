@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.9.0' # Time-stamp: <2026-11-03T01:08:23Z>
+__version__ = '0.10.0' # Time-stamp: <2026-11-03T03:41:31Z>
 
 """Logic with matrices: parse_formula with matrix binders and
 equations, rewrite_goal, cas_goal, Theorem.instance, Theorem.cas,
@@ -226,3 +226,42 @@ def test_by_cas ():
                 by_steps(by_cas("expand"), by_auto(th)))
     assert t.verify()
     assert t.explain().splitlines()[1] == "  proof: cas(expand); auto(p)"
+
+
+def test_induction ():
+    from sympy_matrix_tools.fol import by_induct, by_rewrite_asm
+    k = Symbol("k", integer=True, nonnegative=True)
+    s = Function("s")
+    T = {"k": k, "s": s}
+    nat_induct = Theorem(
+        "nat_induct", "∀Phi k. Phi(0) ∧ (∀k. Phi(k) → Phi(k + 1)) → Phi(k)",
+        axiom=True, symbols=T)
+    s_0 = Theorem("s_0", "s(0) = 0", axiom=True, symbols=T)
+    s_step = Theorem("s_step", "∀k. s(k + 1) = s(k) + 2*k + 1",
+                     axiom=True, symbols=T)
+    # The instance does not bind the predicate s or Eq.
+    i = nat_induct.instance(Phi=Lambda(k, Eq(s(k), k**2)))
+    assert [str(v) for v in i.variables()] == ["k"]
+    tac = by_steps(by_induct(nat_induct, "k"), by_rewrite(s_0),
+                   by_rewrite(s_step), by_rewrite_asm(), by_cas("expand"))
+    sq = Theorem("sq", "∀k. s(k) = k**2", tac, symbols=T)
+    assert sq.verify()
+    assert {t.name for t in sq.dependencies()} \
+        == {"nat_induct", "s_0", "s_step"}
+    with pytest.raises(ValueError):
+        Theorem("cube", "∀k. s(k) = k**3", tac, symbols=T).verify()
+    with pytest.raises(ValueError):
+        by_induct(s_step, "k")          # no predicate variable
+
+
+def test_rewrite_occurrence ():
+    x1 = Symbol("x")
+    f = Function("f")
+    Ps = Symbol("P")
+    double = ForAll(Lambda(x1, Eq(f(x1), 2 * x1)))
+    z = make_proofstate(PredApply(Ps, f(x1), f(x1) + 1))
+    r = rewrite_goal(z, double, occurrence=1)
+    assert get_syms_prems_concl(r)[1][0] == PredApply(Ps, f(x1), 2*x1 + 1)
+    r = rewrite_goal(z, double)
+    assert get_syms_prems_concl(r)[1][0] == PredApply(Ps, 2*x1, 2*x1 + 1)
+    assert rewrite_goal(z, double, occurrence=2) is None

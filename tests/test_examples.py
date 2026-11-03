@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.9.0' # Time-stamp: <2026-11-03T01:08:23Z>
+__version__ = '0.10.0' # Time-stamp: <2026-11-03T03:41:31Z>
 
 """Execute the code cells of the notebooks in examples/."""
 
@@ -54,3 +54,7 @@ def test_loewner_order ():
     assert {t.name for t in deps if t.kind == "ledger"} \
         == {"quad_add", "congr_diff", "V3_expand"}
     assert not ns["d3"].check()
+    th = ns["V_nonneg"]
+    assert th.verified
+    assert "nat_induct" in {t.name for t in th.dependencies()
+                            if t.kind == "axiom"}
