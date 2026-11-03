@@ -12,7 +12,8 @@ process:
     sympy_matrix_tools is imported, because the chain rule needs it.
   * `fix_ExpectationMatrix_expand()` and
     `fix_Basic_MatrixSymbol_about_dummy()` are applied only when you
-    call them.
+    call them, except that importing `sympy_matrix_tools.fol` applies
+    `fix_Basic_MatrixSymbol_about_dummy()`.
 
 The list of the known bugs of SymPy 1.14 and their workarounds is at
 the end of this document.

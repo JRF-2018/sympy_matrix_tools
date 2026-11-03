@@ -7,20 +7,43 @@ variables (or other symbols), e.g. PredApply(F_, x, y), is a pattern
 in the sense of Miller, and it is solved by abstraction:
 F_ := Lambda((x, y), t).
 
-Arguments of commutative operators (And, Or, Add, Mul, Equivalent)
-are tried in all permutations, so ho_unify() may yield more than one
-unifier.
+Arguments of commutative operators (And, Or, Add, Mul, MatAdd,
+Equivalent) are tried in all permutations, so ho_unify() may yield
+more than one unifier.  For associative operators (And, Or, Add, Mul, MatAdd and
+MatMul), a metavariable may stand for several arguments, e.g. ?M + ?N
+unifies with A + B + C.
 """
-__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
+__version__ = '0.9.0' # Time-stamp: <2026-11-03T01:08:23Z>
 
-from itertools import permutations
-from sympy import Wild, Lambda, Dummy, And, Or, Add, Mul, Equivalent
+from itertools import permutations, combinations
+from sympy import Wild, Lambda, Dummy, And, Or, Add, Mul, Equivalent, \
+    MatrixSymbol, MatAdd, MatMul, Transpose
 from sympy.logic.boolalg import Boolean
 from .apply import Apply
+from .matrix_symbol import make_dummy
+from .unif_tools import construct_term
 
 
 _COMMUTATIVE = (And, Or, Equivalent)
 MAX_PERMUTATION_ARGS = 5
+MAX_AC_ARGS = 8
+
+
+def eval_matrix_ops (z):
+    """Evaluate MatMul, MatAdd and Transpose in z as their operators
+    (*, +, .T) do.  Substitutions (xreplace) leave them unevaluated,
+    e.g. MatMul(x.T, MatMul(P.T, M, P), x)."""
+    if z.is_Atom:
+        return z
+    args = [eval_matrix_ops(a) for a in z.args]
+    if isinstance(z, (MatMul, MatAdd, Transpose)):
+        try:
+            return z.func(*args).doit(deep=False)
+        except Exception:
+            pass
+    if all(a is b for a, b in zip(args, z.args)):
+        return z
+    return construct_term(z.func, *args)
 
 
 def _is_boolean_wild (w):
@@ -40,13 +63,27 @@ def _is_commutative_op (t):
         return True
     if isinstance(t, (Add, Mul)) and t.is_commutative:
         return True
+    if isinstance(t, MatAdd):
+        return True
     return False
+
+
+def _is_ac_op (t):
+    # Associative and commutative.
+    if isinstance(t, (And, Or, MatAdd)):
+        return True
+    return isinstance(t, (Add, Mul)) and t.is_commutative
 
 
 def _subst (t, sigma):
     if not sigma:
         return t
-    return t.xreplace(sigma)
+    return eval_matrix_ops(t.xreplace(sigma))
+
+
+def _is_symbol (a):
+    # MatrixSymbol.is_Symbol is False.
+    return a.is_Symbol or isinstance(a, MatrixSymbol)
 
 
 def _is_pattern (t):
@@ -54,7 +91,7 @@ def _is_pattern (t):
         return False
     args = t.arguments
     return len(set(args)) == len(args) \
-        and all(a.is_Symbol and not isinstance(a, Wild) for a in args)
+        and all(_is_symbol(a) and not isinstance(a, Wild) for a in args)
 
 
 def _ok_value (w, v, local):
@@ -87,7 +124,7 @@ def _bind (w, v, sigma, local):
 
 def _solve_pattern (p, t, sigma, local):
     # p = F(a1, ..., an) with distinct symbols ai.
-    xs = tuple(Dummy(a.name if hasattr(a, 'name') else 'x')
+    xs = tuple(make_dummy(a, a.name if hasattr(a, 'name') else 'x')
                for a in p.arguments)
     body = t.xreplace(dict(zip(p.arguments, xs)))
     # Symbols in local but not in the arguments must not appear.
@@ -133,7 +170,7 @@ def _unify (s, t, sigma, local):
         sv, tv = s.signature, t.signature
         if len(sv) != len(tv):
             return
-        ds = tuple(Dummy(getattr(v, 'name', 'b')) for v in sv)
+        ds = tuple(make_dummy(v, getattr(v, 'name', 'b')) for v in sv)
         sb = s.expr.xreplace(dict(zip(sv, ds)))
         tb = t.expr.xreplace(dict(zip(tv, ds)))
         yield from _unify(sb, tb, sigma, local | set(ds))
@@ -141,7 +178,23 @@ def _unify (s, t, sigma, local):
 
     if s.is_Atom or t.is_Atom:
         return
-    if type(s) != type(t) or len(s.args) != len(t.args):
+    if type(s) != type(t):
+        return
+    if len(s.args) != len(t.args):
+        # A metavariable may stand for several arguments, e.g.
+        # ?M + ?N and A + B + C, or P.T*?M*P and P.T*A*B*P.
+        if len(s.args) > len(t.args):
+            s, t = t, s
+        if len(t.args) > MAX_AC_ARGS:
+            return
+        if _is_ac_op(s):
+            seen = []
+            for r in _unify_ac(s, t, sigma, local):
+                if r not in seen:
+                    seen.append(r)
+                    yield r
+        elif isinstance(s, MatMul):
+            yield from _unify_assoc(s, t, sigma, local)
         return
 
     if _is_commutative_op(s) and len(t.args) <= MAX_PERMUTATION_ARGS:
@@ -153,6 +206,72 @@ def _unify (s, t, sigma, local):
                     yield r
         return
     yield from _unify_args(s.args, t.args, sigma, local)
+
+
+def _is_var (a):
+    return isinstance(a, Wild) or _is_pattern(a)
+
+
+def _group (t, args):
+    if len(args) == 1:
+        return args[0]
+    return eval_matrix_ops(construct_term(t.func, *args))
+
+
+def _unify_ac (s, t, sigma, local):
+    # s has fewer arguments than t.  Each argument of s that is not a
+    # metavariable takes one argument of t, and the metavariables take
+    # the rest, at least one each.
+    vs = [a for a in s.args if _is_var(a)]
+    fixed = [a for a in s.args if not _is_var(a)]
+    if not vs:
+        return
+
+    def match_fixed (fixed, rest, sigma):
+        if not fixed:
+            yield rest, sigma
+            return
+        for i, b in enumerate(rest):
+            for r in _unify(fixed[0], b, sigma, local):
+                yield from match_fixed(fixed[1:], rest[:i] + rest[i + 1:], r)
+
+    def assign (vs, rest, sigma):
+        if len(vs) == 1:
+            yield from _unify(vs[0], _group(t, rest), sigma, local)
+            return
+        n = len(rest)
+        for k in range(1, n - len(vs) + 2):
+            for idx in combinations(range(n), k):
+                g = [rest[i] for i in idx]
+                others = [rest[i] for i in range(n) if i not in idx]
+                for r in _unify(vs[0], _group(t, g), sigma, local):
+                    yield from assign(vs[1:], others, r)
+
+    for rest, r in match_fixed(fixed, list(t.args), sigma):
+        if len(rest) >= len(vs):
+            yield from assign(vs, rest, r)
+
+
+def _unify_assoc (s, t, sigma, local):
+    # s has fewer factors than t.  A metavariable of s may take a
+    # contiguous segment of the factors of t.
+    sargs, targs = s.args, t.args
+
+    def go (i, j, sigma):
+        if i == len(sargs):
+            if j == len(targs):
+                yield sigma
+            return
+        a = sargs[i]
+        if _is_var(a):
+            for k in range(j + 1, len(targs) - (len(sargs) - i - 1) + 1):
+                for r in _unify(a, _group(t, targs[j:k]), sigma, local):
+                    yield from go(i + 1, k, r)
+        elif j < len(targs):
+            for r in _unify(a, targs[j], sigma, local):
+                yield from go(i + 1, j + 1, r)
+
+    yield from go(0, 0, sigma)
 
 
 def _unify_args (sargs, targs, sigma, local):

@@ -43,6 +43,7 @@ with random values, so that a wrong step is found at once.
 | `d.check(trials=3, seed=0)` | check every step numerically; return `True` if no failure is found |
 | `d.report()`, `d.summary()` | a text report, and the counts of steps, assertions, failures and open obligations |
 | `Grad(f, x)` | the unevaluated gradient of a scalar `f` by a matrix `x` (`doit()` computes it) |
+| `d.theorem(name)` | the derived fact as a `Theorem` of the logic tools (kind `"ledger"`), see [fol.md](fol.md) |
 
 Hypotheses of symmetry (`Eq(X.T, X)` or `Q.symmetric(X)`), positive
 definiteness (`Q.positive_definite(X)`) and invertibility
@@ -163,6 +164,34 @@ Summary: 1 step, 0 asserted, 0 symbolic failures, 0 numeric failures, 0 open obl
 
 Write the derivative of `x(t)` as `x(t).diff(t)`.  `Derivative(x(t),
 t)` written directly is SymPy's scalar `Derivative`, not a matrix.
+
+
+## Facts as theorems
+
+`d.theorem(name, over=None)` turns a derived fact into a `Theorem` of
+`sympy_matrix_tools.fol`, so that a proof in the logic can use the
+algebra derived in a ledger, e.g. by `by_rewrite`.  The statement is
+`∀vs. (hypotheses → lhs = rhs)`, where `vs` are the symbols and
+matrices of the fact (not the dimensions) and the hypotheses are those
+the fact rests on.  `verify()` of the theorem requires that every step
+is justified and checked symbolically, and that no numerical check
+fails.
+
+```python
+>>> d4 = Derivation("transpose")
+>>> d4.hypothesis(Eq(W.T, W), "W_sym")
+>>> d4.calc("q", z.T*W.T*p, (z.T*W*p, rule("W_sym")))
+>>> th = d4.theorem("q")
+>>> th
+ledger q: ∀W p z. W.T = W → z.T*W.T*p = z.T*W*p
+>>> th.verify()
+True
+
+```
+
+See [fol.md](fol.md) and
+[examples/loewner_order.ipynb](../examples/loewner_order.ipynb), where
+ledger facts and proofs in the logic are combined.
 
 
 ## The symbolic check

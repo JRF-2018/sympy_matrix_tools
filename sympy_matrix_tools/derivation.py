@@ -19,16 +19,18 @@ whoever wrote them, a human, an AI or a buggy CAS.
 As in the calc of Lean, the intermediate expressions are written in
 the script, so that the script can be read without running it.
 """
-__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
+__version__ = '0.9.0' # Time-stamp: <2026-11-03T01:08:23Z>
 
 import random
 from sympy import Basic, Eq, Symbol, MatrixSymbol, MatrixExpr, \
     ImmutableMatrix, Matrix, Rational, Integer, ZeroMatrix, Identity, \
-    MatAdd, MatMul, Add, Q, diff, sympify, Dummy, Lambda, Derivative, Subs
+    MatAdd, MatMul, Add, Q, diff, sympify, Dummy, Lambda, Derivative, \
+    Subs, Implies, And
 from sympy import latex as _latex
 from sympy.assumptions.assume import AppliedPredicate
 from .matrix_tools import mat_expand, mat_coeff
 from .matrix_function import mat_diff, AppliedMatrixUndef, derivative_str
+from .logic_tools import ForAll
 from sympy.core.function import AppliedUndef, UndefinedFunction
 
 
@@ -764,6 +766,84 @@ class Derivation:
         return dict(steps=len(steps), asserted=asserted,
                     symbolic_failures=sfail, numeric_failures=nfail,
                     open_obligations=opened)
+
+    # Facts as theorems of the logic tools.
+
+    def _closure (self, name):
+        # The facts that the fact rests on, the fact itself last.
+        seen = []
+        def visit (n):
+            if n in seen:
+                return
+            for d in self.facts[n].deps:
+                visit(d)
+            seen.append(n)
+        visit(name)
+        return seen
+
+    def _fact_status (self, name):
+        """(ok, message): whether the derived fact and the derived facts
+        that it rests on are checked symbolically and numerically."""
+        names = [n for n in self._closure(name)
+                 if self.facts[n].kind == "derived"]
+        if any(st.numeric is None for n in names
+               for st in self.facts[n].steps) \
+           or any(hasattr(self.facts[n], 'solved')
+                  and self.facts[n].numeric is None for n in names):
+            self.check()
+        nsteps = 0
+        trials = None
+        for n in names:
+            f = self.facts[n]
+            if f.numeric is not None:
+                nsteps += 1
+                if f.numeric[0] != f.numeric[1]:
+                    return False, "%s failed the numerical check." % n
+                trials = f.numeric[1]
+            for i, st in enumerate(f.steps):
+                nsteps += 1
+                where = "step %d of %s" % (i + 1, n)
+                if isinstance(st.numeric, tuple):
+                    if st.numeric[0] != st.numeric[1]:
+                        return False, ("%s failed the numerical check "
+                                       "(see its counterexample)." % where)
+                    trials = st.numeric[1]
+                if not st.justifications:
+                    return False, "%s is only asserted." % where
+                if st.symbolic is not True:
+                    return False, "%s failed the symbolic check." % where
+        msg = "Derivation \"%s\": %d step%s checked symbolically" \
+            % (self.title, nsteps, "" if nsteps == 1 else "s")
+        if trials:
+            msg += " and numerically (%d trials)" % trials
+        return True, msg
+
+    def theorem (self, name, over=None, theorem_name=None):
+        """The derived fact as a Theorem of sympy_matrix_tools.fol, of
+        kind "ledger": ForAll vs. (hypotheses -> Eq(lhs, rhs)).
+
+        The hypotheses and definitions that the fact rests on become
+        premises.  vs are the symbols and matrices in it (not the
+        dimensions), unless over gives them.  verify() requires that
+        every step of the fact (and of the derived facts it rests on)
+        is justified and checked symbolically, and that no numerical
+        check fails.  The trusted base is SymPy (and the numerical
+        checks are additional evidence), not a proof in logic.
+        """
+        from .fol import Theorem, _variables
+        f = self.facts[name]
+        if f.kind != "derived":
+            raise ValueError("%s is not a derived fact." % name)
+        hyps = [self.facts[n].prop for n in self._closure(name)
+                if self.facts[n].kind in ("hypothesis", "definition")]
+        prop = Eq(f.prop.lhs, f.prop.rhs)
+        body = Implies(And(*hyps), prop) if hyps else prop
+        if over is None:
+            over = _variables([body])
+        st = ForAll(Lambda(tuple(over), body)) if over else body
+        th = Theorem(theorem_name or name, st, kind="ledger")
+        th.ledger = (self, name)
+        return th
 
     def report (self, printer=derivative_str):
         """Return the report as a plain text.  Derivatives of undefined

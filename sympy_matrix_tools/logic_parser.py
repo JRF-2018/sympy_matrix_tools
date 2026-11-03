@@ -8,14 +8,14 @@ fol (ForAll, Exists, Implies, And, Or, Bot, PredApply, Wild).
 
 See docs/fol.md.
 """
-__version__ = '0.8.0' # Time-stamp: <2026-10-22T18:27:21Z>
+__version__ = '0.9.0' # Time-stamp: <2026-11-03T01:08:23Z>
 
 import re
 from sympy import Symbol, Wild, Lambda, Implies, And, Or, Equivalent, \
-    sympify
+    sympify, Eq, MatrixSymbol
 from sympy.parsing.sympy_parser import parse_expr
 from .apply import Apply, PredApply
-from .logic_tools import ForAll, FrozenGoal
+from .logic_tools import ForAll, FrozenGoal, is_symbol_boolean
 from .fol import Exists, Bot, neg
 
 
@@ -170,7 +170,43 @@ class _Parser:
             return self.formula()
         return self.atom()
 
+    def equation (self):
+        # "s = t": the text up to a connective at the top level must
+        # contain "=" at the top level.
+        self.skip()
+        text = self.text
+        i = self.pos
+        depth = 0
+        eq = None
+        while i < len(text):
+            c = text[i]
+            if c in '([':
+                depth += 1
+            elif c in ')]':
+                if depth == 0:
+                    break
+                depth -= 1
+            elif depth == 0:
+                if text.startswith(('→', '↔', '∧', '∨', '->', '<->', '&',
+                                    '|', ','), i):
+                    break
+                if c == '=' and eq is None \
+                   and text[i - 1:i] not in ('<', '>', '!', '=') \
+                   and text[i + 1:i + 2] != '=':
+                    eq = i
+            i += 1
+        if eq is None:
+            return None
+        lhs, rhs = text[self.pos:eq].strip(), text[eq + 1:i].strip()
+        if not lhs or not rhs:
+            self.error("Expected a term")
+        self.pos = i
+        return ('eq', lhs, rhs)
+
     def atom (self):
+        r = self.equation()
+        if r is not None:
+            return r
         k, v = self.peek()
         if k == 'LPAREN':
             self.take()
@@ -223,6 +259,16 @@ class _Builder:
                 else Wild(name)
         return self.wilds[key]
 
+    def bound (self, name, prop):
+        # A bound variable given in symbols, e.g. a MatrixSymbol, is
+        # used as it is.
+        s = self.symbols.get(name)
+        if isinstance(s, (Symbol, MatrixSymbol)) \
+           and not isinstance(s, Wild) \
+           and bool(prop) == bool(is_symbol_boolean(s)):
+            return s
+        return Symbol(name, boolean=True) if prop else Symbol(name)
+
     def term (self, text, env):
         # ?F(a, b) is Apply(Wild("F"), a, b), and ?x is Wild("x").
         local = {}
@@ -243,8 +289,7 @@ class _Builder:
         t = node[0]
         if t in ('forall', 'exists'):
             props = _props(node[2])
-            vs = [Symbol(v, boolean=True) if v in props else Symbol(v)
-                  for v in node[1]]
+            vs = [self.bound(v, v in props) for v in node[1]]
             env2 = dict(env)
             env2.update(zip(node[1], vs))
             body = self.build(node[2], env2)
@@ -268,6 +313,8 @@ class _Builder:
             return FrozenGoal(self.build(node[1], env))
         if t == 'bot':
             return Bot
+        if t == 'eq':
+            return Eq(self.term(node[1], env), self.term(node[2], env))
         if t == 'sympy':
             local = dict(self.symbols)
             local.update(env)
@@ -305,6 +352,7 @@ def parse_formula (text, symbols=None, predicates=None):
       * P(t, ...) is PredApply(P, t, ...), where the arguments are
         SymPy expressions; a bare name A is a proposition
         Symbol("A", boolean=True);
+      * s = t is Eq(s, t) for SymPy expressions s and t;
       * ?x is a metavariable (Wild), ?P(x) is PredApply(Wild("P"), x),
         and ?f(x) in a term is Apply(Wild("f"), x);
       * [expr] is any SymPy expression, e.g. [x < 3];
@@ -312,9 +360,10 @@ def parse_formula (text, symbols=None, predicates=None):
 
     ¬φ is neg(φ) = Implies(φ, Bot), and ∃ is fol.Exists.  A bound
     variable is a Symbol, with boolean=True if it is used as a
-    proposition.  symbols maps names to the objects to use for the free
-    names, and predicates maps names to functions (e.g. SymPy
-    Predicate's) to apply instead of PredApply.
+    proposition.  symbols maps names to the objects to use for the
+    names; a bound variable whose name is in symbols is that object,
+    e.g. a MatrixSymbol.  predicates maps names to functions (e.g.
+    SymPy Predicate's) to apply instead of PredApply.
 
     >>> from sympy_matrix_tools import formula_str
     >>> f = parse_formula("ALL x. P(x) -> (EX y. Q(f(x), y))")

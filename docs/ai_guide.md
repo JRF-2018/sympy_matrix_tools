@@ -19,13 +19,20 @@ be copied as it is.
   * You need coefficients or collection in **non-commutative** matrix
     expressions (`mat_coeff`, `mat_collect`, `mat_divide`), or sums of
     matrices (`MatSum`).
+  * You are asked to **prove or check an argument** that mixes logic
+    (∀, ∃, →) and matrix algebra, e.g. properties of an order of
+    matrices defined by the user: see "Proving or checking an
+    argument" below.
 
 ## When not to use it
 
   * Numerical linear algebra: use NumPy or SciPy.
   * Rigorous proofs: use Lean or Isabelle.  The logic tools here are
     experimental, and SymPy's automatic evaluation is part of the
-    trusted base.  A `Derivation` gives evidence, not proofs.
+    trusted base.  A `Derivation` gives evidence, not proofs.  The
+    logic tools are good for checking the structure of an argument of
+    the size of a textbook page, with the algebra checked by a
+    `Derivation` (see the workflow below).
   * Large expressions: the tools are written for derivations of the
     size of a textbook page.
 
@@ -156,6 +163,128 @@ True
 [fol.md](fol.md).
 
 
+## Recipe 5: prove a statement about matrices
+
+Definitions are axioms of your own, written in the logical notation.
+The algebra that the logic needs is derived in a ledger and used as a
+theorem.  Give `symbols` for every name, including the dimension.
+
+```python
+>>> from sympy_matrix_tools.fol import Proof, by_rule, by_rewrite, by_steps
+>>> S = {"n": n}
+>>> S.update({k: MatrixSymbol(k, n, n) for k in ["A", "B", "M", "N"]})
+>>> S.update({"x": MatrixSymbol("x", n, 1),
+...           "a": MatrixSymbol("a", 1, 1), "b": MatrixSymbol("b", 1, 1)})
+>>> M, N, x = S["M"], S["N"], S["x"]
+
+>>> nonneg_add = Theorem("nonneg_add",
+...     "∀a b. nonneg(a) ∧ nonneg(b) → nonneg(a + b)", axiom=True, symbols=S)
+>>> psd_def = Theorem("psd_def", "∀M. psd(M) ↔ (∀x. nonneg(x.T*M*x))",
+...                   axiom=True, symbols=S)
+
+>>> d = Derivation("algebra")
+>>> d.calc("quad_add", x.T*(M + N)*x, (x.T*M*x + x.T*N*x, cas(mat_expand)))
+>>> quad_add = d.theorem("quad_add")
+
+>>> psd_unfold = Theorem("psd_unfold", "∀M x. psd(M) → nonneg(x.T*M*x)",
+...                      by_auto(psd_def), symbols=S)
+>>> psd_add = Theorem("psd_add", "∀M N. psd(M) ∧ psd(N) → psd(M + N)",
+...                   by_steps(by_rule(psd_def), by_rewrite(quad_add),
+...                            by_auto(nonneg_add, psd_unfold)),
+...                   symbols=S)
+>>> psd_add.verify()
+True
+>>> print(psd_add.explain())
+theorem psd_add: ∀M N. (psd(M) ∧ psd(N)) → psd(M + N)
+  proof: rule(psd_def); rewrite(quad_add); auto(nonneg_add, psd_unfold)
+  axioms: psd_def, nonneg_add
+  ledger facts: quad_add
+  theorems: psd_unfold
+  verified: yes
+
+```
+
+A longer argument is easier as a forward `Proof`, where each `have`
+is checked where it is written:
+
+```python
+>>> pf = Proof("psd_add3", "∀A B M. psd(A) ∧ psd(B) ∧ psd(M) → psd(A + B + M)",
+...            symbols=S)
+>>> pf.have("ab", "psd(A + B)", by_auto(psd_add), using=["h1", "h2"])
+>>> th = pf.show(by_auto(psd_add), using=["ab", "h3"])
+>>> print(pf)
+proof psd_add3: ∀A B M. (psd(A) ∧ psd(B) ∧ psd(M)) → psd(A + B + M)
+  fix A B M
+  assume h1: psd(A)
+  assume h2: psd(B)
+  assume h3: psd(M)
+  have ab: psd(A + B)
+      using h1, h2  by auto(psd_add)
+  show psd(A + B + M)
+      using ab, h3  by auto(psd_add)
+qed
+
+```
+
+See [fol.md](fol.md) and the long example
+[examples/loewner_order.ipynb](../examples/loewner_order.ipynb) (the
+Loewner order, with two ledgers and backward and forward proofs).
+
+
+## Proving or checking an argument: a workflow
+
+When you are asked to "prove (or check) this argument with
+sympy_matrix_tools", work as follows.
+
+  1. **Install and import.**
+     `pip install "sympy>=1.14" git+https://github.com/JRF-2018/sympy_matrix_tools`,
+     then `from sympy import *`, `from sympy_matrix_tools import *`,
+     `from sympy_matrix_tools.fol import *` and
+     `from sympy_matrix_tools.derivation import Derivation, cas, rule`.
+  2. **Split the argument** into three kinds of parts:
+       * definitions and assumptions: axioms, `Theorem(name, "...",
+         axiom=True, symbols=S)`.  Keep them few, standard and
+         obviously true, and show them to the user.  **Never** state
+         the claim (or a step of it) as an axiom.
+       * algebra (identities of matrices and scalars): a `Derivation`,
+         each step justified by `cas(...)` or `rule(...)`, then
+         `check()` and `d.theorem(name)`.
+       * logical steps: `Theorem` with tactics (`by_auto`, `by_rule`,
+         `by_rewrite`, `by_cas`, `by_steps`) or a forward `Proof`.
+  3. **Build up from small lemmas.**  For a long argument, follow the
+     text of the argument with a `Proof`: one `have` per sentence.  A
+     wrong step raises `ValueError` where it is written.
+  4. **When a step fails**, try in this order:
+       * check that `symbols` has every name and dimension (a missing
+         name becomes a new scalar `Symbol`, and nothing matches);
+       * give an instance by `th.instance(x=...)` when the unifier has
+         to find a term inside a product (e.g. `P*x` in `x.T*P.T*M*P*x`);
+       * rewrite by a ledger equation (`by_rewrite(eq)`, or
+         `reverse=True`) when SymPy does not apply the algebra by
+         itself; or compute by `by_cas("expand")`;
+       * split the step into smaller `have`s, pass fewer facts in
+         `using`, or raise `depth` and `max_nodes` of `by_auto`.
+     If the step is still not proved, it may be false: check it
+     numerically (e.g. with a `Derivation`) before trying harder.
+  5. **Report honestly.**  Print each `Proof` and the `explain()` of the
+     main theorem, and say what the result rests on: the axioms (which
+     are assumed, not proved), the ledger facts (trusted to SymPy's
+     computation and checked with random values) and SymPy's automatic
+     evaluation.  If `verify()` raised, say that the claim was not
+     proved; do not present a partial proof as a proof.
+
+Limits to tell the user about:
+
+  * There is no induction: a statement about all k can only be checked
+    for some k (the Loewner example proves V1 ≼ V2 ≼ V3 of an
+    iteration, not Vk ≼ Vk+1 for all k).
+  * Arithmetic and inequalities of numbers are not built in; state
+    the facts you need (such as `nonneg_add`) as axioms.
+  * `auto` is incomplete and takes about 0.1 seconds per proofstate.
+  * For a proof that must be rigorous, translate the result to Lean or
+    Isabelle.
+
+
 ## Pitfalls (SymPy 1.14)
 
   * `Eq(Grad(...), ZeroMatrix(...))` evaluates the gradient; pass
@@ -176,5 +305,11 @@ True
     variables of `Subs`; they are not free symbols.
   * `fix_ExpectationMatrix_expand()` and
     `fix_Basic_MatrixSymbol_about_dummy()` change SymPy globally.
+    Importing `sympy_matrix_tools.fol` applies the latter.
+  * In formulas, SymPy reorders and simplifies terms: `B - A` is
+    printed as `-A + B`, and `(P*x).T` is `x.T*P.T`.  Write formulas in
+    any form; compare them after parsing, not as text.
+  * A quadratic form `x.T*M*x` is a 1×1 matrix, not a scalar; declare
+    the "scalars" of axioms about it as 1×1 `MatrixSymbol`s.
 
 The full list of known SymPy bugs is in [fixes.md](fixes.md).

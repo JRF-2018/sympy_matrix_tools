@@ -10,17 +10,18 @@ in the logical notation.
 
 See docs/logic.md and docs/fol.md.
 """
-__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
+__version__ = '0.9.0' # Time-stamp: <2026-11-03T01:08:23Z>
 
 import re
 from sympy import And, Implies, Predicate, Lambda, AppliedPredicate, Wild,\
-    sympify, Basic, Symbol, MatrixSymbol, Equivalent, Or, Not
-from sympy.logic.boolalg import BooleanFunction
+    sympify, Basic, Symbol, MatrixSymbol, Equivalent, Or, Not, Equality, \
+    MatMul, MatAdd, Transpose
+from sympy.logic.boolalg import BooleanFunction, Boolean
 from sympy.unify import unify
 from .matrix_symbol import make_dummy, make_wild
 from .unif_tools import rename_bound_symbols_uniquely, construct_term
 from .apply import Apply, MatApply, PredApply
-from .hounif import ho_unify
+from .hounif import ho_unify, eval_matrix_ops
 
 
 ForAll = Predicate("ForAll")
@@ -71,7 +72,11 @@ def is_symbol_boolean (z):
     return None
 
 
+_eval_matrix = eval_matrix_ops
+
+
 def and_implication_normal_form (il, free_wild=True, free_dummy=True):
+    il = _eval_matrix(il)
     if not isinstance(il, Implies) and not is_ForAll(il):
         return rename_bound_symbols_uniquely(il, free_wild=free_wild,
                                              free_dummy=free_dummy)
@@ -364,7 +369,9 @@ def _contract_double_lift (z, exclude=()):
        and z.function.function.is_Symbol and z.function.function.is_Wild \
        and z not in exclude:
         symbols = z.function.arguments
-        a = set(z.arguments)
+        if isinstance(z, MatApply):
+            return MatApply(*z.shape, z.function.function,
+                            *(tuple(z.arguments) + tuple(symbols)))
         return z.func(z.function.function,
                       *(tuple(z.arguments) + tuple(symbols)))
     if z.is_Atom:
@@ -380,13 +387,15 @@ def _lift_wild (z, symbols, exclude=()):
     
     if isinstance(z, Apply) and z.function.is_Symbol and z.function.is_Wild \
        and z.function not in exclude:
-        a = set(z.arguments)
-        return z.func(z.function,
-                      *(tuple([_lift_wild(x, symbols, exclude=exclude)
-                               for x in z.arguments]) + tuple(symbols)))
+        args = tuple([_lift_wild(x, symbols, exclude=exclude)
+                      for x in z.arguments]) + tuple(symbols)
+        if isinstance(z, MatApply):
+            return MatApply(*z.shape, z.function, *args)
+        return z.func(z.function, *args)
     if z.is_Symbol and z.is_Wild and z not in exclude:
         if z.is_Matrix:
-            return MatApply(Wild(z.name, exclude=z.exclude), *symbols)
+            return MatApply(*z.shape, Wild(z.name, exclude=z.exclude),
+                            *symbols)
         if is_symbol_boolean(z):
             return PredApply(Wild(z.name, exclude=z.exclude), *symbols)
         return Apply(Wild(z.name, exclude=z.exclude), *symbols)
@@ -455,14 +464,19 @@ def _match_or_unify (z1, z2, exclude=()):
         # Higher-order pattern unification first, and then the old
         # methods of SymPy as fallback.
         yield from ho_unify(z1, z2)
-        r = z1.match(z2)
-        if r is not None:
-            yield r
-        r = z2.match(z1)
-        if r is not None:
-            yield r
+        # The old methods may raise errors on matrix expressions.
+        for a, b in ((z1, z2), (z2, z1)):
+            try:
+                r = a.match(b)
+            except Exception:
+                r = None
+            if r is not None:
+                yield r
         w = z1.atoms(Wild) | z2.atoms(Wild)
-        yield from unify(z1, z2, variables=w)
+        try:
+            yield from unify(z1, z2, variables=w)
+        except Exception:
+            pass
     # Wild's in binder positions of Lambda are bound variables, not
     # metavariables.
     binders = set()
@@ -470,7 +484,7 @@ def _match_or_unify (z1, z2, exclude=()):
         binders |= set(lam.signature)
     def subst (z, r):
         for i in range(10):
-            z2 = z.xreplace(r)
+            z2 = eval_matrix_ops(z.xreplace(r))
             if z2 == z:
                 break
             z = z2
@@ -1024,6 +1038,156 @@ def split_goals (proofstate):
     return and_implication_normal_form(r, free_dummy=False)
 
 
+def _subterms (z, bound=frozenset()):
+    # Preorder.  Subterms with symbols bound inside z are skipped.
+    if not (z.free_symbols & bound):
+        yield z
+    if z.is_Atom:
+        return
+    if hasattr(z, 'bound_symbols'):
+        bound = bound | set(z.bound_symbols)
+    for a in z.args:
+        yield from _subterms(a, bound)
+
+
+def iter_rewrite_goal (proofstate, eq, index=0, reverse=False):
+    """Yield the proofstates where the conclusion of the subgoal of
+    the index is rewritten by the equation eq.
+
+    eq is a theorem ForAll ws. (C1 & ... -> Eq(l, r)) whose bound
+    variables ws are pattern variables.  The first subterm (in
+    preorder) of the conclusion that is an instance of l is replaced
+    by the instance of r; all of its occurrences are replaced.  The
+    conditions C1, ... become new subgoals.  With reverse=True, r is
+    rewritten to l.
+
+    The step is an instance of the substitution of equals
+    s = t & P(t) -> P(s), with P made by abstracting the occurrences
+    of the subterm, and of eq itself.
+    """
+    proofstate, eq = rename_bound_symbols_uniquely([proofstate, eq],
+                                                   free_dummy=False)
+    eq = and_implication_normal_form(eq, free_dummy=False)
+    ws, _, _ = get_syms_prems_concl(eq)
+    eq = make_outer_forall_wild(eq)
+    ws = set(eq.atoms(Wild)) - set(proofstate.atoms(Wild))
+    _, conds, e = get_syms_prems_concl(eq)
+    if not isinstance(e, Equality):
+        raise ValueError("Not an equation: %s" % e)
+    l, r = (e.rhs, e.lhs) if reverse else (e.lhs, e.rhs)
+    fw = set(proofstate.atoms(Wild))
+
+    gvs, prems, il = get_syms_prems_concl(proofstate)
+    if index >= len(prems):
+        return
+    x = prems[index]
+    lvs, xprems, xil = get_syms_prems_concl(x)
+    seen = []
+    for u in _subterms(xil):
+        if u.is_Boolean and not isinstance(u, Equality):
+            if not isinstance(l, Boolean):
+                continue
+        for d in ho_unify(l, u):
+            if not set(d.keys()) <= ws:
+                continue
+            t = lift_wild(r.xreplace(d), gvs + lvs, exclude=fw)
+            cs = [lift_wild(c.xreplace(d), gvs + lvs, exclude=fw)
+                  for c in conds]
+            z = make_dummy(u, "u")
+            body = xil.xreplace({u: z})
+            if body.xreplace({z: u}) != xil:
+                continue
+            new = [body.xreplace({z: t})] + cs
+            if xprems:
+                new = [Implies(And(*xprems), y) for y in new]
+            if lvs:
+                new = [ForAll(Lambda(lvs, y)) for y in new]
+            nprems = prems[0:index] + new + prems[index + 1:]
+            rs = Implies(And(*nprems), il) if nprems else il
+            if gvs:
+                rs = ForAll(Lambda(gvs, rs))
+            rs = and_implication_normal_form(rs, free_dummy=False)
+            if rs not in seen:
+                seen.append(rs)
+                yield rs
+
+
+def rewrite_goal (proofstate, eq, index=0, reverse=False, num=0):
+    """Rewrite the conclusion of a subgoal by an equation; see
+    iter_rewrite_goal.  num selects the result.  Return None if eq
+    does not match.
+
+    >>> from sympy import Symbol, Lambda, Eq, Function
+    >>> from sympy_matrix_tools import PredApply
+    >>> x, y = Symbol("x"), Symbol("y")
+    >>> f = Function("f")
+    >>> P = Symbol("P")
+    >>> double = ForAll(Lambda(x, Eq(f(x), 2 * x)))
+    >>> z = make_proofstate(ForAll(Lambda(y, PredApply(P, f(y) + 1))))
+    >>> print_proofstate(rewrite_goal(z, double), pretty=True)
+    prem 0: ∀y. P(2*y + 1)
+    gl*: ∀y1. P(f(y1) + 1)
+    >>> z = make_proofstate(ForAll(Lambda(y, Implies(PredApply(P, 2 * y),
+    ...                                              PredApply(P, f(y))))))
+    >>> print_proofstate(rewrite_goal(z, double), pretty=True)
+    gl*: ∀y. P(2*y) → P(f(y))
+    """
+    for i, z in enumerate(iter_rewrite_goal(proofstate, eq, index=index,
+                                            reverse=reverse)):
+        if i == num:
+            return z
+    return None
+
+
+def _map_terms (z, func):
+    # Apply func to the maximal subterms of the formula z that are not
+    # formulas.
+    if isinstance(z, Lambda):
+        return Lambda(z.signature, _map_terms(z.expr, func))
+    if isinstance(z, Boolean) and not z.is_Atom:
+        return construct_term(z.func, *[_map_terms(a, func)
+                                        for a in z.args])
+    if isinstance(z, Boolean):
+        return z
+    if isinstance(z, Basic):
+        return func(z)
+    return z
+
+
+def cas_goal (proofstate, func="doit", index=0):
+    """Apply a computation of SymPy to the terms in the conclusion of
+    the subgoal of the index, e.g. "doit" turns x.T*0*x into 0.  func
+    is a function or the name of a method.  The trusted base includes
+    SymPy, as with its automatic evaluation.  Return None if nothing
+    changes.
+
+    >>> from sympy import Symbol, Lambda
+    >>> from sympy_matrix_tools import PredApply
+    >>> x = Symbol("x")
+    >>> P = Symbol("P")
+    >>> z = make_proofstate(PredApply(P, (x + 1)**2 - x**2))
+    >>> print_proofstate(cas_goal(z, "expand"), pretty=True)
+    prem 0: P(2*x + 1)
+    gl*: P(-x**2 + (x + 1)**2)
+    """
+    f = (lambda e: getattr(e, func)()) if isinstance(func, str) else func
+    gvs, prems, il = get_syms_prems_concl(proofstate)
+    if index >= len(prems):
+        return None
+    lvs, xprems, xil = get_syms_prems_concl(prems[index])
+    nil = _map_terms(xil, f)
+    if nil == xil:
+        return None
+    x = Implies(And(*xprems), nil) if xprems else nil
+    if lvs:
+        x = ForAll(Lambda(lvs, x))
+    nprems = prems[0:index] + [x] + prems[index + 1:]
+    r = Implies(And(*nprems), il)
+    if gvs:
+        r = ForAll(Lambda(gvs, r))
+    return and_implication_normal_form(r, free_dummy=False)
+
+
 def _subgoals (proofstate):
     gvs, prems, il = get_syms_prems_concl(proofstate)
     return prems
@@ -1187,6 +1351,8 @@ def formula_str (z):
         return " ∨ ".join(_paren(a) for a in z.args)
     if isinstance(z, Equivalent):
         return " ↔ ".join(_paren(a) for a in z.args)
+    if isinstance(z, Equality):
+        return "%s = %s" % (_term_str(z.lhs), _term_str(z.rhs))
     if isinstance(z, Not):
         return "¬" + _paren(z.args[0])
     if z == _bot():

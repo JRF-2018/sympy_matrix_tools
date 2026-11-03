@@ -1,6 +1,6 @@
 # sympy_matrix_tools
 
-<!-- Time-stamp: "2026-10-22T18:27:21Z" -->
+<!-- Time-stamp: "2026-11-03T01:07:56Z" -->
 
 Tools for symbolic matrix calculus and checked derivations with
 [SymPy](https://www.sympy.org/).
@@ -18,12 +18,16 @@ Tools for symbolic matrix calculus and checked derivations with
     random rational matrices.
   * **Logic tools**: higher-order pattern unification, rewriting, and
     an Isabelle-style prover with first-order logic built on a minimal
-    core.
+    core.  Statements may be about matrices; proofs are written
+    backward with tactics or forward in the style of Isar
+    (`Proof`: `have` ... `show`), and the algebra they need can come
+    from a derivation ledger.  `explain()` shows what a theorem rests
+    on.
 
 As of SymPy 1.14, SymPy has nothing like `MatrixFunction`,
 `MatrixWild` or `MatSum`.
 
-**Status (2026-10):** maintained for SymPy 1.14. See
+**Status (2026-11):** maintained for SymPy 1.14. See
 [CHANGELOG.md](CHANGELOG.md).
 
 
@@ -37,7 +41,7 @@ pip install git+https://github.com/JRF-2018/sympy_matrix_tools
 ```
 
 In Google Colab, put `!` before `pip`. To fix the version, specify a
-tag such as `...sympy_matrix_tools@v0.8.0`.
+tag such as `...sympy_matrix_tools@v0.9.0`.
 
 
 ## Quick tour
@@ -115,7 +119,7 @@ Summary: 4 steps, 1 asserted, 0 symbolic failures, 1 numeric failure, 0 open obl
 | Wild symbols and application | [docs/wild_apply.md](docs/wild_apply.md) | `MatrixWild`, `MatrixDummy`, `WildMatrixFunction`, `Apply`, `MatApply`, `PredApply` |
 | Derivation ledger | [docs/derivation.md](docs/derivation.md) | `Derivation`, `Grad`, `cas`, `rule` |
 | Unification, rewriting and proofstates | [docs/logic.md](docs/logic.md) | `ho_unify`, `rewriterules_from_eqs`, `resolve_mp`, `make_proofstate`, `resolve_implications`, `auto` |
-| First-order logic | [docs/fol.md](docs/fol.md) | `Theorem`, `parse_formula`, `Exists`, `Bot`, `neg`, `exI`, `exE`, `by_auto` |
+| First-order logic, matrices and structured proofs | [docs/fol.md](docs/fol.md) | `Theorem`, `parse_formula`, `Exists`, `Bot`, `neg`, `by_auto`, `by_rule`, `by_rewrite`, `by_steps`, `Proof`, `explain` |
 | Fixes of SymPy and known SymPy bugs | [docs/fixes.md](docs/fixes.md) | `fix_ExpectationMatrix_expand`, `fix_Basic_MatrixSymbol_about_dummy`, `fix_Transpose_eval_derivative` |
 | For AI agents | [docs/ai_guide.md](docs/ai_guide.md), [llms.txt](llms.txt) | when to use, recipes and pitfalls |
 | Development | [docs/development.md](docs/development.md) | tests, conventions |
@@ -132,6 +136,11 @@ The examples in the documents are tested by doctest.
     rule of `MatrixFunction` compared with direct differentiation.
   * [examples/first_order_logic.ipynb](examples/first_order_logic.ipynb):
     first-order logic built on the minimal core and proofs by `auto`.
+  * [examples/loewner_order.ipynb](examples/loewner_order.ipynb): the
+    Loewner order of matrices defined in the notebook, and theorems
+    about it (transitivity, monotonicity of `P.T*A*P + R`, and the
+    increase of the iterates of a Lyapunov-type iteration), proved
+    backward and forward with the algebra from derivation ledgers.
 
 An actual usage example is in
 [JRF-2018/economy_control](https://github.com/JRF-2018/economy_control)
@@ -143,8 +152,24 @@ dynamic economic systems. Its notebook is fixed to v0.4.0.
 
 If you are an AI agent (or an LLM) deciding whether and how to use this
 library, read [docs/ai_guide.md](docs/ai_guide.md) first. It describes
-when this library is appropriate, minimal working recipes and the
-pitfalls of SymPy 1.14. A summary for LLMs is in [llms.txt](llms.txt).
+when this library is appropriate, minimal working recipes, a workflow
+for proving or checking an argument, and the pitfalls of SymPy 1.14.
+A summary for LLMs is in [llms.txt](llms.txt).
+
+To ask an AI agent (that can run Python) to check an argument with
+this library, a prompt like the following works:
+
+```text
+Using https://github.com/JRF-2018/sympy_matrix_tools, prove (or check)
+the argument below. First read docs/ai_guide.md and follow its section
+"Proving or checking an argument". State the definitions and
+assumptions as axioms and show them to me, derive the algebra in a
+Derivation, write the proof as a Proof (have ... show), and report
+print(proof) and explain() of the main theorem. If a step cannot be
+proved, say so and do not add it as an axiom.
+
+<the argument>
+```
 
 
 ## Remark

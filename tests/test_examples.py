@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '0.7.0' # Time-stamp: <2026-10-22T17:31:49Z>
+__version__ = '0.9.0' # Time-stamp: <2026-11-03T01:08:23Z>
 
 """Execute the code cells of the notebooks in examples/."""
 
@@ -42,3 +42,15 @@ def test_lq_control_ledger ():
     assert s["asserted"] == 0
     assert "x = -K**(-1)*B.T*(W*(A*y0 + z) + p)" in d.report()
     assert d._repr_latex_().startswith(r"$\begin{array}")
+
+
+def test_loewner_order ():
+    ns = run_notebook("loewner_order")
+    th = ns["iterates_trans"]
+    assert th.verified
+    deps = th.dependencies()
+    assert {t.name for t in deps if t.kind == "axiom"} \
+        == {"le_def", "psd_def", "nonneg_add"}
+    assert {t.name for t in deps if t.kind == "ledger"} \
+        == {"quad_add", "congr_diff", "V3_expand"}
+    assert not ns["d3"].check()

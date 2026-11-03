@@ -5,11 +5,52 @@ All notable changes are recorded here.  The format is based on
 tagged as `vX.Y.Z` on GitHub.
 
 
-## [Unreleased]
+## [0.9.0] - 2026-11-03
 
 ### Added
+- Logic with matrices: `parse_formula` and `Theorem` take `symbols`
+  whose `MatrixSymbol`s may be bound (`∀M. psd(M) → ...`), and read
+  equations `s = t`; `formula_str` prints `Eq` as `s = t`.
+- Tactics in `sympy_matrix_tools.fol`: `by_rule` (one backward step),
+  `by_rewrite` (rewriting by an equation theorem, as the substitution
+  of equals), `by_cas` (a computation of SymPy on the terms of a
+  subgoal) and `by_steps` (a sequence).  `by_auto` uses a theorem whose
+  conclusion is `↔` or `∧` as its parts.  In `logic_tools`:
+  `rewrite_goal`, `iter_rewrite_goal` and `cas_goal`.
+- `Theorem.instance(x=t)` (forall elimination with explicit terms) and
+  `Theorem.cas(func)` (terms computed by SymPy).
+- `Proof`: structured proofs in forward style like Isar (`have` ...
+  `show`); each step is proved at once.
+- `Derivation.theorem(name)`: a derived fact of a ledger as a
+  `Theorem` of kind "ledger", whose `verify()` requires symbolic and
+  numerical checks of all its steps.
+- `Theorem.dependencies()` and `Theorem.explain()`: the axioms, ledger
+  facts and theorems that a theorem rests on.
+- `ho_unify`: associative-commutative unification (`?M + ?N` with
+  `A + B + C`) and associative unification of `MatMul` (`P.T*?M*P`
+  with `P.T*A*B*P`).
+- `examples/loewner_order.ipynb`: the Loewner order defined in the
+  notebook, with two ledgers and backward and forward proofs.
+- `docs/ai_guide.md`: a recipe for statements about matrices and a
+  workflow for AI agents asked to prove or check an argument; the
+  README has a prompt template.
 - The weekly workflow has a manual input `force_failure`, which makes
   the tests fail on purpose to try the path that opens an issue.
+
+### Changed
+- Importing `sympy_matrix_tools.fol` applies
+  `fix_Basic_MatrixSymbol_about_dummy()`.
+- The normal form of formulas evaluates `MatMul`, `MatAdd` and
+  `Transpose` as their operators do (e.g. `(P*x).T` is `x.T*P.T`).
+- `Theorem.verify()` verifies the theorems used first, and runs a
+  proof only once.
+
+### Fixed
+- Metavariables of matrices were lifted to a `MatApply` without its
+  shape, and patterns with `MatrixSymbol` arguments were not solved,
+  so the proofstates could not be used with matrices.
+- The fallback matchers of SymPy could raise errors on matrix
+  expressions during unification.
 
 
 ## [0.8.0] - 2026-10-23

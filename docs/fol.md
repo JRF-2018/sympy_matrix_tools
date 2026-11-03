@@ -200,10 +200,230 @@ are rejected.  See also
 [examples/first_order_logic.ipynb](../examples/first_order_logic.ipynb).
 
 
+## Matrices, equations and algebra
+
+The same logic works with matrices.  A theorem about matrices usually
+needs some algebra, which the logic does not know; the algebra comes
+from SymPy (its automatic evaluation and `by_cas`) and from a
+derivation ledger (`Derivation.theorem`, see
+[derivation.md](derivation.md)).  A long example, the Loewner order
+of matrices, is in
+[examples/loewner_order.ipynb](../examples/loewner_order.ipynb).
+
+| Name | Purpose |
+|---|---|
+| `by_auto(*rules, ...)` | search a proof backward with the rules (see above) |
+| `by_rule(th)` | one backward step with `th` (`rule` of Isabelle); it may leave subgoals |
+| `by_rewrite(eq, reverse=False)` | rewrite the conclusion of the first subgoal by an equation theorem |
+| `by_cas(func="doit")` | apply a computation of SymPy to the terms of the first subgoal |
+| `by_steps(*tactics)` | apply tactics in order |
+| `th.instance(x=t, ...)` | the instance of `th` at `x := t` |
+| `th.cas(func="doit")` | `th` with its terms computed by SymPy |
+| `d.theorem(name)` | the derived fact `name` of a `Derivation` `d` as a theorem |
+| `Proof(name, statement)` | a structured proof in forward style: `have(...)`, then `show(...)` |
+| `th.dependencies()`, `th.explain()` | what `th` rests on |
+
+### Formulas about matrices
+
+`parse_formula` (and `Theorem`) take `symbols`, a dict from names to
+objects.  A bound variable whose name is in `symbols` is that object,
+so `∀M. ...` binds a `MatrixSymbol` `M`.  Put the dimensions (here
+`n`) in `symbols` too, for terms such as `ZeroMatrix(n, n)`.  `s = t`
+is the equation `Eq(s, t)`.
+
+Importing `sympy_matrix_tools.fol` applies
+`fix_Basic_MatrixSymbol_about_dummy()` (see [fixes.md](fixes.md)),
+because SymPy's canonical forms break formulas that bind matrices.
+
+```python
+>>> n = Symbol("n", integer=True, positive=True)
+>>> S = {"n": n}
+>>> S.update({k: MatrixSymbol(k, n, n) for k in ["A", "B", "M", "N", "P"]})
+>>> S.update({k: MatrixSymbol(k, n, 1) for k in ["x"]})
+>>> S.update({k: MatrixSymbol(k, 1, 1) for k in ["a", "b"]})
+>>> A, B, M, N, P, x = [S[k] for k in ["A", "B", "M", "N", "P", "x"]]
+
+>>> nonneg_add = Theorem("nonneg_add",
+...                      "∀a b. nonneg(a) ∧ nonneg(b) → nonneg(a + b)",
+...                      axiom=True, symbols=S)
+>>> psd_def = Theorem("psd_def", "∀M. psd(M) ↔ (∀x. nonneg(x.T*M*x))",
+...                   axiom=True, symbols=S)
+>>> psd_def.statement.arguments[0].signature == (M,)
+True
+
+```
+
+Here `nonneg(a)` means a ≥ 0 for a 1×1 matrix `a` (a quadratic form
+`x.T*M*x` is a 1×1 matrix in SymPy), and `psd(M)` means that `M` is
+positive semidefinite.  These are axioms of our own, not part of the
+library.  A theorem whose conclusion is `↔` (or `∧`) is used by the
+tactics as its parts, i.e. in both directions.
+
+After each step, `MatMul`, `MatAdd` and `Transpose` are evaluated as
+their operators do: `(P*x).T*M*(P*x)` is `x.T*P.T*M*P*x`, `x.T*0*x` is
+`0` and `(B - A) + A` is `B`.  This automatic evaluation of SymPy is
+part of the trusted base.
+
+### Tactics
+
+A tactic is a function from a proofstate to a proofstate (or `None` if
+it fails); the proof of a `Theorem` is a tactic.  A tactic records the
+theorems that it uses.
+
+  * `by_rule(th, index=0)` resolves the subgoal of the index with `th`
+    backward, like `rule` of Isabelle.
+  * `by_rewrite(eq, index=0, reverse=False, num=0)` rewrites the
+    conclusion of the subgoal by `eq`, a theorem `∀ws. C → l = r`: the
+    first subterm that is an instance of `l` is replaced by the
+    instance of `r` (with `reverse=True`, `r` by `l`), and the
+    conditions `C` become subgoals.  The step is an instance of the
+    substitution of equals, `s = t ∧ P(t) → P(s)`.
+    (`logic_tools.rewrite_goal`.)
+  * `by_cas(func="doit", index=0)` applies a computation of SymPy (a
+    function or a method name such as `"expand"`) to the terms in the
+    conclusion of the subgoal.  (`logic_tools.cas_goal`.)
+  * `by_steps(*tactics)` applies the tactics in order; the last one
+    must solve all the subgoals.
+
+The steps can be run by hand to see the proofstates.  Here the
+algebra x.T*(M + N)*x = x.T*M*x + x.T*N*x is assumed as an axiom; the
+next section derives it in a ledger instead.
+
+```python
+>>> quad_add_ax = Theorem("quad_add_ax",
+...     "∀M N x. x.T*(M + N)*x = x.T*M*x + x.T*N*x", axiom=True, symbols=S)
+>>> psd_unfold = Theorem("psd_unfold", "∀M x. psd(M) → nonneg(x.T*M*x)",
+...                      by_auto(psd_def), symbols=S)
+>>> z = make_proofstate(parse_formula("∀M N. psd(M) ∧ psd(N) → psd(M + N)",
+...                                   symbols=S))
+>>> z = by_rule(psd_def)(z)
+>>> print_proofstate(z, pretty=True)
+prem 0: ∀M N x. (psd(M) ∧ psd(N)) → nonneg(x.T*(M + N)*x)
+gl*: ∀M1 N1. (psd(M1) ∧ psd(N1)) → psd(M1 + N1)
+>>> z = by_rewrite(quad_add_ax)(z)
+>>> print_proofstate(z, pretty=True)
+prem 0: ∀M N x. (psd(M) ∧ psd(N)) → nonneg(x.T*M*x + x.T*N*x)
+gl*: ∀M1 N1. (psd(M1) ∧ psd(N1)) → psd(M1 + N1)
+>>> z = by_auto(nonneg_add, psd_unfold)(z)
+>>> print_proofstate(z, pretty=True)
+gl*: ∀M N. (psd(M) ∧ psd(N)) → psd(M + N)
+
+```
+
+### Instances
+
+`th.instance(x=t, ...)` replaces the outer bound variables named by
+the keys (forall elimination) and binds the new free symbols of the
+terms again (forall introduction), unless `over` gives the symbols to
+bind.  Use it when unification cannot find a term, e.g. the vector
+`P*x` in `x.T*P.T*M*P*x`.  `th.cas(func)` computes the terms of a
+theorem by SymPy, like `simplified` of Isabelle.
+
+```python
+>>> psd_unfold.instance(x=P*x)
+instance psd_unfold[x := P*x]: ∀M P x. psd(M) → nonneg(x.T*P.T*M*P*x)
+>>> psd_congr = Theorem("psd_congr", "∀M P. psd(M) → psd(P.T*M*P)",
+...                     by_auto(psd_def, psd_unfold.instance(x=P*x)),
+...                     symbols=S)
+>>> psd_congr.verify()
+True
+
+```
+
+### Theorems from a derivation ledger
+
+`d.theorem(name)` turns the derived fact `name` of a `Derivation` `d`
+into a theorem of kind `"ledger"`, universally quantified over its
+symbols; the hypotheses and definitions that the fact rests on become
+premises.  Its `verify()` requires that every step is justified and
+checked symbolically, and that no numerical check fails.  It is
+trusted to SymPy's computation, with the numerical checks as further
+evidence; it is not a proof in the logic.
+
+```python
+>>> from sympy_matrix_tools.derivation import Derivation, cas
+>>> d = Derivation("Quadratic forms")
+>>> d.calc("quad_add", x.T*(M + N)*x, (x.T*M*x + x.T*N*x, cas(mat_expand)))
+>>> quad_add = d.theorem("quad_add")
+>>> quad_add.verify()
+True
+>>> psd_add = Theorem("psd_add", "∀M N. psd(M) ∧ psd(N) → psd(M + N)",
+...                   by_steps(by_rule(psd_def), by_rewrite(quad_add),
+...                            by_auto(nonneg_add, psd_unfold)),
+...                   symbols=S)
+>>> psd_add.verify()
+True
+
+```
+
+### Structured proofs
+
+`Proof(name, statement, symbols=None, assume=None)` proves
+`∀xs. H1 ∧ ... → C` forward, like Isar of Isabelle: `xs` are fixed,
+the assumptions are named `h1`, `h2`, ... (or by `assume`), and
+
+  * `have(name, formula, by, using=None)` derives `formula` from the
+    facts named in `using` (all the facts if `None`) by the tactic
+    `by`.  The step is a lemma `∀xs. (used facts) → formula`, proved at
+    once, so a wrong step raises `ValueError` where it is written.
+  * `show(by, using=None)` derives `C` and returns the proved
+    `Theorem`, whose proof combines the lemmas.
+  * `print(proof)` shows the proof as text.
+
+In formulas of a `Proof`, the names of `xs` are the fixed variables.
+
+```python
+>>> le_def = Theorem("le_def", "∀A B. mat_le(A, B) ↔ psd(B - A)",
+...                  axiom=True, symbols=S)
+>>> pf = Proof("le_congr", "∀A B P. mat_le(A, B) → mat_le(P.T*A*P, P.T*B*P)",
+...            symbols=S)
+>>> pf.have("d", "psd(B - A)", by_auto(le_def), using=["h1"])
+>>> pf.have("e", "psd(P.T*(B - A)*P)", by_auto(psd_congr), using=["d"])
+>>> d.calc("congr_diff", P.T*(B - A)*P, (P.T*B*P - P.T*A*P, cas(mat_expand)))
+>>> pf.have("f", "psd(P.T*B*P - P.T*A*P)",
+...         by_steps(by_rewrite(d.theorem("congr_diff"), reverse=True),
+...                  by_auto()), using=["e"])
+>>> le_congr = pf.show(by_auto(le_def), using=["f"])
+>>> print(pf)
+proof le_congr: ∀A B P. mat_le(A, B) → mat_le(P.T*A*P, P.T*B*P)
+  fix A B P
+  assume h1: mat_le(A, B)
+  have d: psd(-A + B)
+      using h1  by auto(le_def)
+  have e: psd(P.T*(-A + B)*P)
+      using d  by auto(psd_congr)
+  have f: psd(-P.T*A*P + P.T*B*P)
+      using e  by rewrite_rev(congr_diff); auto()
+  show mat_le(P.T*A*P, P.T*B*P)
+      using f  by auto(le_def)
+qed
+
+```
+
+### What a theorem rests on
+
+`th.dependencies()` lists the theorems that `th` rests on, and
+`th.explain()` shows the statement, the proof and the axioms, ledger
+facts and theorems used.  When you report a result, report these
+too: a theorem is only as good as its axioms.
+
+```python
+>>> print(le_congr.explain())
+theorem le_congr: ∀A B P. mat_le(A, B) → mat_le(P.T*A*P, P.T*B*P)
+  proof: structured proof (4 steps)
+  axioms: le_def, psd_def
+  ledger facts: congr_diff
+  theorems: psd_unfold, psd_congr
+  verified: yes
+
+```
+
+
 ## Remarks
 
   * The trusted base includes SymPy's automatic evaluation, e.g.
-    `Implies(A, A)` is `True` at once.
+    `Implies(A, A)` is `True` at once, and the computations of
+    `by_cas`, `Theorem.cas` and ledger theorems.
   * `auto` is not complete; a long proof may need larger `depth` and
     `max_nodes`.  A proof step takes about 0.1 seconds.
   * In 0.5.0, an unsound behavior of `remove_trivial_assumptions` was

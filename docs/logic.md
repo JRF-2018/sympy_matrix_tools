@@ -135,8 +135,12 @@ two points:
     `Apply(F, x)` with `F = Wild("F")`, is a pattern in the sense of
     Miller, and is solved by abstraction: `F = Lambda(x, ...)`.
 
-Arguments of commutative operators (`And`, `Or`, `Add`, `Mul`) are
-tried in all orders, so there may be several unifiers.
+Arguments of commutative operators (`And`, `Or`, `Add`, `Mul`,
+`MatAdd`) are tried in all orders, so there may be several unifiers.
+For associative operators, a metavariable may stand for several
+arguments: `?M + ?N` unifies with `A + B + C` (in six ways), and
+`P.T*?M*P` with `P.T*A*B*P` (`?M = A*B`, contiguous factors of a
+`MatMul`).
 
 ```python
 >>> F = Wild("F")
@@ -237,6 +241,8 @@ The steps:
 | `sresolve_implications(ps, th)` | `subgoal_tac` | add the conclusion of `th` as an assumption, with new subgoals for its premises |
 | `remove_trivial_assumptions(ps)` | `assumption` | prove a subgoal by one of its assumptions (also backward through assumptions with premises) |
 | `split_goals(ps)` | `conjI` | split subgoals whose conclusions are `And` or `Equivalent` |
+| `rewrite_goal(ps, eq, index=0, reverse=False)` | `subst` | rewrite the conclusion of a subgoal by an equation theorem `∀ws. C → l = r`; the conditions `C` become subgoals |
+| `cas_goal(ps, func="doit", index=0)` | `simp` (by SymPy) | apply a computation of SymPy to the terms in the conclusion of a subgoal |
 | `auto(ps, rules)` | `auto` | search a proof by backtracking with the steps above |
 
 Each `*_implications` function has an `iter_*` version that yields all
@@ -245,6 +251,9 @@ result); they may be numbers or conditions such as a type or a
 predicate (see `formula_match`).  `print_proofstate(ps, pretty=True)`
 and `formula_str` show formulas in the logical notation, and
 `parse_formula` reads that notation back (see [fol.md](fol.md)).
+The tactics of [fol.md](fol.md) (`by_rule`, `by_rewrite`, `by_cas`,
+`by_steps`, ...) wrap these functions, and `Proof` writes proofs in
+forward style.
 
 ```python
 >>> x = Symbol("x")
